@@ -1,0 +1,60 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "api.fullname" . }}
+  labels:
+    {{- include "api.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: api-critical
+      rules:
+        - alert: ApiDown
+          expr: |
+            max(up{namespace="{{ .Release.Namespace }}", service="{{ include "api.fullname" . }}"}) == 0
+            or
+            absent(up{namespace="{{ .Release.Namespace }}", service="{{ include "api.fullname" . }}"})
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: API is unavailable
+            description: No healthy API scrape target has been available for one minute.
+            action: Check the Deployment, Pods, Service endpoints and the latest rollout.
+
+        - alert: ApiHighErrorRate
+          expr: |
+            (
+              sum(rate(api_http_errors_total{namespace="{{ .Release.Namespace }}"}[1m]))
+              /
+              clamp_min(
+                sum(rate(api_http_requests_total{namespace="{{ .Release.Namespace }}", route!~"/(health|metrics|alerts)"}[1m])),
+                0.001
+              )
+            ) > 0.20
+            and
+            sum(rate(api_http_requests_total{namespace="{{ .Release.Namespace }}", route!~"/(health|metrics|alerts)"}[1m])) > 0.1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: API error rate is above 20 percent
+            description: Users have received too many HTTP 5xx responses for one minute.
+            action: Check error logs, failed traces and recent application changes.
+
+        - alert: ApiHighLatencyP95
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le) (
+                rate(api_http_request_duration_seconds_bucket{namespace="{{ .Release.Namespace }}", route!~"/(health|metrics|alerts)"}[1m])
+              )
+            ) > 1
+            and
+            sum(rate(api_http_requests_total{namespace="{{ .Release.Namespace }}", route!~"/(health|metrics|alerts)"}[1m])) > 0.1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: API p95 latency is above one second
+            description: User-facing requests have remained slow for one minute.
+            action: Inspect latency by route, slow traces and resource saturation.

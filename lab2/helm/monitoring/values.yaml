@@ -1,0 +1,59 @@
+alertmanager:
+  enabled: true
+  tplConfig: true
+  stringConfig: |-
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 5s
+      group_interval: 30s
+      repeat_interval: 4h
+      receiver: api-webhook
+    receivers:
+    - name: api-webhook
+      webhook_configs:
+      - url: http://api.app.svc.cluster.local.:8080/alerts
+        send_resolved: true
+  alertmanagerSpec:
+    replicas: 1
+
+defaultRules:
+  create: false
+
+grafana:
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: false
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      access: proxy
+      url: http://loki-gateway
+      isDefault: false
+      editable: false
+      jsonData:
+        maxLines: 1000
+        derivedFields:
+          - name: TraceID
+            matcherRegex: '"trace_id":"([a-f0-9]+)"'
+            url: 'http://127.0.0.1:16686/trace/$${__value.raw}'
+            urlDisplayLabel: View trace
+
+prometheus:
+  prometheusSpec:
+    retention: 6h
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi

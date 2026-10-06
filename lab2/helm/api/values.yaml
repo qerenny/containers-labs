@@ -1,0 +1,25 @@
+replicaCount: 1
+
+image:
+  repository: lab2-api
+  tag: local
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+
+serviceMonitor:
+  enabled: true
+  interval: 15s
+
+otel:
+  exporterEndpoint: "http://jaeger.monitoring.svc.cluster.local.:4317"
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+

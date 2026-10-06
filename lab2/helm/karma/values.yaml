@@ -1,0 +1,21 @@
+replicaCount: 1
+fullnameOverride: karma
+
+image:
+  repository: ghcr.io/prymitive/karma
+  tag: v0.133
+  pullPolicy: IfNotPresent
+
+alertmanager:
+  uri: http://monitoring-kube-prometheus-alertmanager.monitoring.svc.cluster.local.:9093
+  name: lab2
+
+service:
+  port: 8080
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    memory: 128Mi

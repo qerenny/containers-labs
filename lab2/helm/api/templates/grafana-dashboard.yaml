@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "api.fullname" . }}-grafana-dashboard
+  labels:
+    grafana_dashboard: "1"
+    {{- include "api.labels" . | nindent 4 }}
+data:
+  api-red.json: |-
+    {
+      "annotations": {"list": []},
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+          "id": 1,
+          "targets": [
+            {
+              "expr": "sum by (route) (rate(api_http_requests_total{route!=\"/metrics\"}[1m]))",
+              "legendFormat": "{{ "{{route}}" }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Request rate by route",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {"max": 100, "min": 0, "unit": "percent"},
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+          "id": 2,
+          "targets": [
+            {
+              "expr": "100 * (sum(rate(api_http_errors_total[5m])) or vector(0)) / clamp_min(sum(rate(api_http_requests_total{route!=\"/metrics\"}[5m])), 0.001)",
+              "legendFormat": "5xx ratio",
+              "refId": "A"
+            }
+          ],
+          "title": "Error ratio",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+          "id": 3,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le, route) (rate(api_http_request_duration_seconds_bucket{route!=\"/metrics\"}[5m])))",
+              "legendFormat": "{{ "{{route}}" }}",
+              "refId": "A"
+            }
+          ],
+          "title": "p95 response time by route",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 41,
+      "tags": ["lab2", "red"],
+      "templating": {"list": []},
+      "time": {"from": "now-15m", "to": "now"},
+      "timezone": "browser",
+      "title": "API RED",
+      "uid": "api-red",
+      "version": 1
+    }
