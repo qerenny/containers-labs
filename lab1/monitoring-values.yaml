@@ -1,0 +1,13 @@
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: lab1-cadvisor
+        scrape_interval: 5s
+        static_configs:
+          - targets:
+              - 172.18.0.1:8082
+        metric_relabel_configs:
+          - source_labels:
+              - id
+            regex: '/lab1\.slice/lab1-monitored\.slice/docker-.*\.scope'
+            action: keep

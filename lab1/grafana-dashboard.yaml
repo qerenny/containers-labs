@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab1-cgroup-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  lab1-cgroup.json: |-
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {
+              "max": 100,
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 70},
+                  {"color": "red", "value": 85}
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 9, "w": 8, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+          "targets": [
+            {
+              "expr": "100 * container_memory_working_set_bytes{job=\"lab1-cadvisor\"} / container_spec_memory_limit_bytes{job=\"lab1-cadvisor\"}",
+              "legendFormat": "memory",
+              "refId": "A"
+            }
+          ],
+          "title": "Memory limit used",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 0.4},
+                  {"color": "red", "value": 0.48}
+                ]
+              },
+              "unit": "cores"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 9, "w": 8, "x": 8, "y": 0},
+          "id": 2,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+          "targets": [
+            {
+              "expr": "rate(container_cpu_usage_seconds_total{job=\"lab1-cadvisor\",cpu=\"total\"}[1m])",
+              "legendFormat": "CPU used",
+              "refId": "A"
+            }
+          ],
+          "title": "CPU usage",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {
+              "max": 100,
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 20},
+                  {"color": "red", "value": 50}
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 9, "w": 8, "x": 16, "y": 0},
+          "id": 3,
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+          "targets": [
+            {
+              "expr": "100 * rate(container_cpu_cfs_throttled_periods_total{job=\"lab1-cadvisor\"}[1m]) / clamp_min(rate(container_cpu_cfs_periods_total{job=\"lab1-cadvisor\"}[1m]), 0.001)",
+              "legendFormat": "throttled periods",
+              "refId": "A"
+            }
+          ],
+          "title": "CPU throttling",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 39,
+      "tags": ["lab1", "cgroup", "cadvisor"],
+      "time": {"from": "now-15m", "to": "now"},
+      "timezone": "browser",
+      "title": "Lab 1 — Container cgroup",
+      "uid": "lab1-cgroup",
+      "version": 1
+    }

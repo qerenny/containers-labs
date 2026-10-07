@@ -942,3 +942,110 @@ gVisor вставляет между приложением и host kernel св�
 
 Контейнер может иметь свой PID namespace, сеть, hostname, mount namespace, rootfs и cgroup, но настоящее ядро у него всё равно то же самое, что и у хоста.
 
+# Часть 8 -- А теперь посмотрим на всё это на графиках
+
+Prometheus и Grafana уже остались от второй лабы. Нам не хватало только метрик Docker-контейнера. Сам API сразу
+зажал до половины ядра и 128 MiB памяти, иначе показывать на графиках будет
+особо нечего:
+
+```bash
+sudo docker run -d \
+  --name lab1-monitored \
+  --cgroup-parent=lab1-monitored.slice \
+  --cpus=0.5 \
+  --memory=128m \
+  -p 8081:8080 \
+  lab1-api:multi
+```
+
+## cAdvisor тоже решил немного повоевать
+
+Сначала запустил cAdvisor как обычно, с Docker socket и `/var/lib/docker`. Он
+запустился, открыл `/metrics`, но наш контейнер решил не показывать:
+
+```text
+failed to identify the read-write layer ID
+open /rootfs/var/lib/docker/image/overlayfs/layerdb/.../mount-id:
+no such file or directory
+```
+
+Оказалось, что Docker уже хранит слои через containerd snapshotter, а cAdvisor
+всё ещё полез искать writable layer в старый `layerdb`. Сами cgroups он при
+этом видел нормально. Ну и ладно: Docker metadata ему не даём, читаем метрики
+прямо из cgroups:
+
+```bash
+sudo docker run -d \
+  --name cadvisor \
+  --privileged \
+  --cgroupns=host \
+  --device=/dev/kmsg \
+  -p 8082:8080 \
+  -v /:/rootfs:ro \
+  -v /sys:/sys:ro \
+  -v /dev/disk:/dev/disk:ro \
+  ghcr.io/google/cadvisor:v0.60.6
+```
+
+Красивые имена контейнеров и образов после этого потерялись, зато CPU и память
+на месте. Привязываться к случайному container ID тоже не хотелось, поэтому
+положил API в отдельную `lab1-monitored.slice`:
+
+```text
+/lab1.slice/lab1-monitored.slice/docker-<container-id>.scope
+```
+
+## Подключаем к Prometheus
+
+cAdvisor торчит на Docker-хосте, а Prometheus сидит внутри kind. Познакомил их
+через gateway kind-сети. 
+
+```yaml
+additionalScrapeConfigs:
+  - job_name: lab1-cadvisor
+    scrape_interval: 5s
+    static_configs:
+      - targets:
+          - 172.18.0.1:8082
+    metric_relabel_configs:
+      - source_labels:
+          - id
+        regex: '/lab1\.slice/lab1-monitored\.slice/docker-.*\.scope'
+        action: keep
+```
+
+
+## Наконец сами графики
+
+Засовываем в контейнер сначала 80 MiB, потом ещё 20 MiB, а `/burn` оставляем
+жарить CPU:
+
+```bash
+curl 'http://127.0.0.1:8081/eat?mb=80'
+curl --max-time 2 http://127.0.0.1:8081/burn
+curl 'http://127.0.0.1:8081/eat?mb=20'
+```
+
+
+
+На дашборд вынес сколько уже съели от memory limit, сколько реально получили
+CPU и как часто CFS говорил нам «хватит»:
+
+![Метрики cgroup в Grafana](pics/grafana-cgroup-dashboard.png)
+
+Память ступеньками выросла примерно до 65% и 80%. CPU аккуратно упёрся в наши
+`0.5 core`, а throttling дошёл до 100%.
+
+## Что отсюда можно отправить в алерты
+
+Три повода начать волноваться:
+
+1. **Память выше 85% несколько минут.** До OOM осталось уже не так много. Ещё
+   немного роста -- процесс убьют и сервис закончится. Считаем именно процент,
+   чтобы после смены лимита не переписывать порог в байтах.
+2. **CPU долго `0.5 core`.** Это ещё не пожар: может быть, приложение
+   просто честно работает. Но запаса под всплеск уже нет, поэтому следующим
+   обычно начинает расти время ответа.
+3. **Throttling выше 20% несколько минут.** Тут cgroup уже не намекает, а прямо
+   отбирает запрошенное CPU-время. Дальше получаем очереди, медленные ответы и
+   таймауты, хотя процесс формально жив.
