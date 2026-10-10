@@ -486,3 +486,82 @@ shop-db-1   Bound   pvc-a14d5eb4-85fc-411e-a7cc-4cbbc69b9e98   1Gi
 магией reconciliation, а знанием своей предметной области. Встроенный
 контроллер понимает Deployment и ReplicaSet, а CloudNativePG понимает primary,
 PostgreSQL-инстанции, подключения, PVC и объект `Cluster`.
+
+# Часть 4 -- уберем управление API 
+
+Kind у меня однодовый, поэтому останавливать весь `lab2-control-plane` нельзя:
+вместе с apiserver там живут containerd и все наши Pod. Вместо этого временно
+убрал только static Pod manifest `kube-apiserver`.
+
+Перед этим запомнил ClusterIP API и проверил его прямо из сетевого namespace
+ноды:
+
+```bash
+docker exec lab2-control-plane \
+  curl -sS "http://${API_IP}:8080/health"
+```
+
+
+Теперь убираем apiserver:
+
+```bash
+docker exec lab2-control-plane \
+  mv /etc/kubernetes/manifests/kube-apiserver.yaml \
+     /etc/kubernetes/disabled-manifests/
+```
+
+Kubelet не мгновенно, но заметил пропавший файл и остановил контейнер. После
+этого управлять кластером уже не вышло:
+
+```bash
+kubectl get pods --namespace shop --request-timeout=5s
+    context deadline exceeded - error from a previous attempt: EOF
+```
+
+Масштабирование отправилось туда же:
+
+```bash
+kubectl scale deployment/shop-api \
+  --namespace shop \
+  --replicas=4 \
+  --request-timeout=5s
+
+    error: context deadline exceeded - error from a previous attempt: EOF
+```
+
+Зато само приложение не заметило, что управлять им временно некому:
+
+```bash
+docker exec lab2-control-plane \
+  curl -sS "http://${API_IP}:8080/health"
+
+docker exec lab2-control-plane \
+  curl -sS "http://${API_IP}:8080/orders"
+```
+
+```text
+ok
+[{
+  "id": 1,
+  "payload": {"item": "deadline"},
+  "status": "processed"
+}]
+```
+
+Pod уже были запущены, Service уже настроен. Поэтому data plane продолжил жить.
+
+Вернул manifest обратно:
+
+```bash
+docker exec lab2-control-plane \
+  mv /etc/kubernetes/disabled-manifests/kube-apiserver.yaml \
+     /etc/kubernetes/manifests/kube-apiserver.yaml
+```
+
+Через несколько секунд кластер снова стал управляемым. Неудачный `scale` так
+ничего и не изменил, потому что без apiserver новое значение не попало в etcd.
+
+```text
+NAME       DESIRED   READY
+shop-api   3         3
+```

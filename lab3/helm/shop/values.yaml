@@ -42,7 +42,7 @@ worker:
     limits:
       cpu: 100m
       memory: 128Mi
-
+      
 postgres:
   instances: 1
   storageSize: 1Gi
