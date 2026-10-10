@@ -19,10 +19,11 @@ spec:
     - expression: >-
         object.spec.containers.all(container, 
         container.image.startsWith('registry.k8s.io/') ||
-        container.image.startsWith('docker.io/qerenny/')
+        container.image.startsWith('docker.io/qerenny/') ||
+        container.image.startsWith('ghcr.io/cloudnative-pg/')
         )
       message: >-
-        Images must come from registry.k8s.io or docker.io/qerenny.
+        Images must come from registry.k8s.io, docker.io/qerenny, or ghcr.io/cloudnative-pg.
 
   validationActions:
     - Deny
@@ -47,5 +48,5 @@ spec:
             - kube-node-lease
             - kyverno
             - monitoring
+            - cnpg-system
             - local-path-storage
-

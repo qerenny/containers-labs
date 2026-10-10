@@ -227,3 +227,159 @@ deployment.apps/compliant-workload created (server dry run)
 
 Вот теперь порядок: пять плохих манифестов остановились на admission, а
 `compliant-workload` прошёл все политики сразу.
+
+# Часть 2 -- завернем все это в Helm
+
+Сделал один чарт `shop`, внутри Deployment и Service для `api` и `worker`.
+Реплик по умолчанию три и две соответственно.
+
+
+
+В шаблоны сразу положил labels, resources, нормальный registry и запрет
+privileged, иначе наш же Kyverno не пустил бы чарт дальше порога.
+
+```bash
+helm template shop helm/shop |
+kubectl apply --dry-run=server -f -
+```
+
+```text
+service/shop-api created (server dry run)
+service/shop-worker created (server dry run)
+deployment.apps/shop-api created (server dry run)
+deployment.apps/shop-worker created (server dry run)
+```
+
+## База внезапно нужна уже сейчас
+
+По заданию оператор PostgreSQL будет в следующей части, но оба сервиса без
+базы просто завершаются. Поэтому на время этой части поднял отдельный
+одноразовый PostgreSQL с `emptyDir`. Это не финальная база и переживать смерть
+Pod она не обязана.
+
+С образом тоже немного повоевал: `kind load` споткнулся о отсутствующий blob
+в multi-platform image. В итоге скачал образ сразу в containerd ноды и там же
+добавил нужный тег.
+
+```bash
+docker exec lab2-control-plane \
+  ctr --namespace k8s.io images pull \
+  docker.io/library/postgres:16-alpine
+
+docker exec lab2-control-plane \
+  ctr --namespace k8s.io images tag \
+  docker.io/library/postgres:16-alpine \
+  docker.io/qerenny/lab3-postgres:16-alpine
+```
+
+PostgreSQL поднялся, Service нашёл его endpoint, после чего уже установил сам
+чарт:
+
+```bash
+helm upgrade --install shop helm/shop \
+  --namespace shop \
+  --wait \
+  --timeout 5m
+```
+
+## Убьем Pod, потому что можем
+
+Удалил один `api` Pod руками. ReplicaSet заметил, что вместо трёх осталось два,
+и сразу создал новый с другим именем.
+
+![API Pod вернулся после удаления](<pics/Screenshot 2026-10-10 at 17.54.32.png>)
+
+Потом выставил четыре реплики и сделал `helm upgrade`. Сначала появился новый
+Pod:
+
+![API масштабируется до четырёх Pod](<pics/Screenshot 2026-10-10 at 17.56.21.png>)
+
+А потом Deployment догнал нужное состояние:
+
+![У Deployment четыре готовые реплики](<pics/Screenshot 2026-10-10 at 17.56.51.png>)
+
+## Обновимся без грохота
+
+Для API задал стратегию:
+
+```yaml
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+```
+
+Собрал `api:0.2.0`, загрузил образ в kind и поменял тег в `values.yaml`.
+Обновление шло по одному Pod: сначала новый доходил до `1/1`, только потом
+старый уходил в `Terminating`.
+
+```text
+shop-api-664bd6cb76-t49qd   0/1   Running       0   1s
+shop-api-664bd6cb76-t49qd   1/1   Running       0   7s
+shop-api-6b5db6c8cf-j5bzw   1/1   Terminating   0   9m
+```
+
+Так повторилось четыре раза. В конце старого ReplicaSet уже не осталось:
+
+```text
+NAME                        IMAGE                               READY
+shop-api-664bd6cb76-dm7wc   docker.io/qerenny/lab3-api:0.2.0   true
+shop-api-664bd6cb76-ktflg   docker.io/qerenny/lab3-api:0.2.0   true
+shop-api-664bd6cb76-s9ggf   docker.io/qerenny/lab3-api:0.2.0   true
+shop-api-664bd6cb76-t49qd   docker.io/qerenny/lab3-api:0.2.0   true
+```
+
+Сначала долбил health через `port-forward`, но он привязывается к одному Pod
+и закономерно отвалился, когда именно этот Pod удалили. Сам Service при этом
+не падал. Для нормальной проверки запустил цикл изнутри кластера и ходил на
+`http://shop-api:8080/health` -- там всё время был `200`.
+
+## Теперь сломаем сами
+
+Выставил:
+
+```yaml
+api:
+  healthFail: true
+```
+
+Новый Pod запустился, но `/health` отвечал `503`. Readiness не добавила его в
+готовые endpoints, а liveness честно перезапускала контейнер снова и снова.
+
+```text
+deployment.apps/shop-api   4/4   1   4
+
+replicaset.apps/shop-api-554cdd457f   1   1   0
+replicaset.apps/shop-api-664bd6cb76   4   4   4
+
+pod/shop-api-554cdd457f-8l25j   0/1   Running   3
+```
+
+Получилось новая версия не работает, rollout стоит,
+но четыре старых Pod продолжают отвечать. В цикле запросов так и остались
+одни `200`.
+
+Helm подождал свои 90 секунд и тоже признал происходящее неудачей:
+
+```text
+4   failed   Upgrade "shop" failed: resource Deployment/shop/shop-api not ready
+```
+
+Откатился на последнюю рабочую ревизию:
+
+```bash
+helm rollback shop 3 \
+  --namespace shop \
+  --wait \
+  --timeout 5m
+```
+
+```text
+Rollback was a success! Happy Helming!
+
+5   deployed   Rollback to 3
+```
+
+Плохой Pod исчез, снова осталось четыре исправных. Сам rollback стал новой
+ревизией, потому что Helm историю не переписывает.

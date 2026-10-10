@@ -44,5 +44,5 @@ spec:
             - kube-node-lease
             - kyverno
             - monitoring
+            - cnpg-system
             - local-path-storage
-

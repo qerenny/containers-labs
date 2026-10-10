@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: postgres
+  namespace: shop
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: shop
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/part-of: shop
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/part-of: shop
+
+    spec:
+      containers:
+        - name: postgres
+          image: docker.io/qerenny/lab3-postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+
+          env:
+            - name: POSTGRES_USER
+              value: shop
+            - name: POSTGRES_PASSWORD
+              value: shop
+            - name: POSTGRES_DB
+              value: shop
+
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - shop
+                - -d
+                - shop
+            initialDelaySeconds: 3
+            periodSeconds: 5
+
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - shop
+                - -d
+                - shop
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          securityContext:
+            privileged: false
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+
+      volumes:
+        - name: data
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: postgres
+  namespace: shop
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: shop
+
+spec:
+  selector:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: shop
+
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP
