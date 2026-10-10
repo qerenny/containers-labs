@@ -383,3 +383,106 @@ Rollback was a success! Happy Helming!
 
 Плохой Pod исчез, снова осталось четыре исправных. Сам rollback стал новой
 ревизией, потому что Helm историю не переписывает.
+
+# Часть 3 -- базе тоже нужен свой контроллер
+
+Временный PostgreSQL из прошлой части свою задачу выполнил. Для нормального
+варианта поставил CloudNativePG один раз на весь кластер.
+
+```bash
+helm upgrade --install cnpg cnpg/cloudnative-pg \
+  --namespace cnpg-system \
+  --create-namespace \
+  --wait \
+  --timeout 5m
+```
+
+```text
+cnpg   cnpg-system   1   deployed   cloudnative-pg-0.29.1   1.30.1
+cnpg-cloudnative-pg-7b5f5d7b65-9jk2j   1/1   Running
+```
+
+Оператор принёс с собой CRD `clusters.postgresql.cnpg.io`. В чарт добавил уже
+конкретный `Cluster/shop-db`: одна инстанция, диск на 1 GiB и ресурсы, чтобы
+Kyverno тоже не грустил.
+
+```yaml
+spec:
+  instances: 1
+  storage:
+    size: 1Gi
+  bootstrap:
+    initdb:
+      database: shop
+      owner: shop
+```
+
+Helm создал CR и пошёл дальше, а оператор уже отдельно довёл базу до нужного
+состояния.
+
+```text
+NAME      INSTANCES   READY   STATUS                     PRIMARY
+shop-db   1           1       Cluster in healthy state   shop-db-1
+
+pod/shop-db-1                     1/1   Running
+persistentvolumeclaim/shop-db-1   Bound   1Gi
+service/shop-db-rw                 ClusterIP   5432/TCP
+```
+
+CloudNativePG ещё сделал `shop-db-app` с готовой строкой подключения. Поэтому
+пароль из Deployment убрал и забрал `DATABASE_URL` из Secret:
+
+```yaml
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ .Release.Name }}-db-app
+      key: uri
+```
+
+После обновления чарта проверил весь путь одним заказом:
+
+```text
+POST /order
+{"id":1,"payload":{"item":"deadline"},"status":"pending"}
+
+GET /orders
+[{"id":1,"payload":{"item":"deadline"},"status":"processed"}]
+```
+
+Значит API записал заказ уже в новую базу, а worker его оттуда забрал. После
+этого временный PostgreSQL наконец удалил.
+
+## А если забрать у оператора Pod
+
+Перед удалением у `shop-db-1` был такой UID:
+
+```text
+shop-db-1   283e4fb7-239c-42ec-a384-fcf97f316ce3   true
+```
+
+```bash
+kubectl delete pod shop-db-1 --namespace shop
+```
+
+CloudNativePG увидел пропавшую инстанцию и создал Pod заново. Имя осталось
+тем же, а UID уже другой:
+
+```text
+shop-db-1   119753fe-910e-4421-a23a-a3b4c6923490   true
+```
+
+PVC при этом никуда не делся:
+
+```text
+shop-db-1   Bound   pvc-a14d5eb4-85fc-411e-a7cc-4cbbc69b9e98   1Gi
+```
+
+Заказ после пересоздания тоже остался на месте. данные
+живут на PersistentVolume.
+
+
+От обычного `kube-controller-manager` оператор отличается не какой-то новой
+магией reconciliation, а знанием своей предметной области. Встроенный
+контроллер понимает Deployment и ReplicaSet, а CloudNativePG понимает primary,
+PostgreSQL-инстанции, подключения, PVC и объект `Cluster`.

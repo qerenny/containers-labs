@@ -46,7 +46,10 @@ spec:
               value: {{ .Values.worker.pollInterval | quote }}
 
             - name: DATABASE_URL
-              value: "postgres://shop:shop@postgres:5432/shop?sslmode=disable"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-app
+                  key: uri
 
           readinessProbe:
             httpGet:
