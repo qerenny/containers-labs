@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: latest-image-tag
+  namespace: policy-tests
+  labels:
+    app.kubernetes.io/name: latest-image-tag
+    app.kubernetes.io/part-of: shop
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: latest-image-tag
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: latest-image-tag
+        app.kubernetes.io/part-of: shop
+
+    spec:
+      securityContext:
+        runAsNonRoot: true
+
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:latest
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: missing-resource-limits
+  namespace: policy-tests
+  labels:
+    app.kubernetes.io/name: missing-resource-limits
+    app.kubernetes.io/part-of: shop
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: missing-resource-limits
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: missing-resource-limits
+        app.kubernetes.io/part-of: shop
+
+    spec:
+      securityContext:
+        runAsNonRoot: true
+
+      containers:
+        - name: missing-resource-limits
+          image: registry.k8s.io/pause:3.10
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL

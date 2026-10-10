@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: compliant-workload
+  namespace: policy-tests
+  labels:
+    app.kubernetes.io/name: compliant-workload
+    app.kubernetes.io/part-of: shop
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: compliant-workload
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: compliant-workload
+        app.kubernetes.io/part-of: shop
+
+    spec:
+      securityContext:
+        runAsNonRoot: true
+
+      containers:
+        - name: app
+          image: registry.k8s.io/pause:3.10
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

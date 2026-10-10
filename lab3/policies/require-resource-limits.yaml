@@ -1,0 +1,48 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+
+metadata:
+  name: require-resource-limits
+
+spec:
+  autogen:
+    podControllers:
+      controllers:
+        - deployments
+        - statefulsets
+        - daemonsets
+        - cronjobs
+        - jobs
+
+
+  validations:
+    - expression: >-
+        object.spec.containers.all(container, has(container.resources) && has(container.resources.requests) && has(container.resources.limits) && has(container.resources.requests.cpu) && has(container.resources.requests.memory) && has(container.resources.limits.cpu) && has(container.resources.limits.memory))
+      message: >-
+         Every container must define CPU and memory requests and limits.
+
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: 
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - kyverno
+            - monitoring
+            - local-path-storage
+

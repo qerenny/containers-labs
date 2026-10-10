@@ -1,0 +1,51 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+
+metadata:
+  name: require-trusted-registry
+
+spec:
+  autogen:
+    podControllers:
+      controllers:
+        - deployments
+        - statefulsets
+        - daemonsets
+        - cronjobs
+        - jobs
+
+
+  validations:
+    - expression: >-
+        object.spec.containers.all(container, 
+        container.image.startsWith('registry.k8s.io/') ||
+        container.image.startsWith('docker.io/qerenny/')
+        )
+      message: >-
+        Images must come from registry.k8s.io or docker.io/qerenny.
+
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: 
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - pods
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kube-public
+            - kube-node-lease
+            - kyverno
+            - monitoring
+            - local-path-storage
+
