@@ -54,3 +54,6 @@ postgres:
     limits:
       cpu: 500m
       memory: 512Mi
+
+monitoring:
+  interval: 15s

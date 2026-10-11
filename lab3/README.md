@@ -96,7 +96,7 @@ object.spec.containers.all(container,
 получить `OOMKilled`.
 
 После включения background scan Kyverno радостно пошёл проверять уже
-существующие системные workloadы. 
+существующие системные workloadы.
 
 ## А проверяли Pod, почему тогда Deployment тоже не пускают
 
@@ -133,7 +133,7 @@ docker.io/qerenny/
 ```
 
 Слеш на конце важен, иначе под префикс мог бы замаскироваться адрес вроде
-`registry.k8s.io.evil.com`..
+`registry.k8s.io.lol.kek`.
 
 Потребовал у Pod два label:
 
@@ -233,8 +233,6 @@ deployment.apps/compliant-workload created (server dry run)
 Сделал один чарт `shop`, внутри Deployment и Service для `api` и `worker`.
 Реплик по умолчанию три и две соответственно.
 
-
-
 В шаблоны сразу положил labels, resources, нормальный registry и запрет
 privileged, иначе наш же Kyverno не пустил бы чарт дальше порога.
 
@@ -257,7 +255,7 @@ deployment.apps/shop-worker created (server dry run)
 одноразовый PostgreSQL с `emptyDir`. Это не финальная база и переживать смерть
 Pod она не обязана.
 
-С образом тоже немного повоевал: `kind load` споткнулся о отсутствующий blob
+С образом тоже немного повоевал: `kind load` споткнулся об отсутствующий blob
 в multi-platform image. В итоге скачал образ сразу в containerd ноды и там же
 добавил нужный тег.
 
@@ -287,16 +285,16 @@ helm upgrade --install shop helm/shop \
 Удалил один `api` Pod руками. ReplicaSet заметил, что вместо трёх осталось два,
 и сразу создал новый с другим именем.
 
-![API Pod вернулся после удаления](<pics/Screenshot 2026-10-10 at 17.54.32.png>)
+![API Pod вернулся после удаления](pics/api-pod-reconciliation.png)
 
 Потом выставил четыре реплики и сделал `helm upgrade`. Сначала появился новый
 Pod:
 
-![API масштабируется до четырёх Pod](<pics/Screenshot 2026-10-10 at 17.56.21.png>)
+![API масштабируется до четырёх Pod](pics/api-scale-up.png)
 
 А потом Deployment догнал нужное состояние:
 
-![У Deployment четыре готовые реплики](<pics/Screenshot 2026-10-10 at 17.56.51.png>)
+![У Deployment четыре готовые реплики](pics/api-four-replicas.png)
 
 ## Обновимся без грохота
 
@@ -356,7 +354,7 @@ replicaset.apps/shop-api-664bd6cb76   4   4   4
 pod/shop-api-554cdd457f-8l25j   0/1   Running   3
 ```
 
-Получилось новая версия не работает, rollout стоит,
+Получилось: новая версия не работает, rollout стоит,
 но четыре старых Pod продолжают отвечать. В цикле запросов так и остались
 одни `200`.
 
@@ -478,16 +476,15 @@ PVC при этом никуда не делся:
 shop-db-1   Bound   pvc-a14d5eb4-85fc-411e-a7cc-4cbbc69b9e98   1Gi
 ```
 
-Заказ после пересоздания тоже остался на месте. данные
+Заказ после пересоздания тоже остался на месте. Данные
 живут на PersistentVolume.
-
 
 От обычного `kube-controller-manager` оператор отличается не какой-то новой
 магией reconciliation, а знанием своей предметной области. Встроенный
 контроллер понимает Deployment и ReplicaSet, а CloudNativePG понимает primary,
 PostgreSQL-инстанции, подключения, PVC и объект `Cluster`.
 
-# Часть 4 -- уберем управление API 
+# Часть 4 -- уберем управление API
 
 Kind у меня однодовый, поэтому останавливать весь `lab2-control-plane` нельзя:
 вместе с apiserver там живут containerd и все наши Pod. Вместо этого временно
@@ -501,8 +498,7 @@ docker exec lab2-control-plane \
   curl -sS "http://${API_IP}:8080/health"
 ```
 
-
-Теперь убираем apiserver:
+Теперь убрал apiserver:
 
 ```bash
 docker exec lab2-control-plane \
@@ -565,3 +561,61 @@ docker exec lab2-control-plane \
 NAME       DESIRED   READY
 shop-api   3         3
 ```
+
+# Часть 5 -- теперь за всем следит Prometheus
+
+Мониторинг после второй лабы всё ещё
+работает. В чарт добавил `ServiceMonitor`, который по labels находит Service
+API и worker и забирает у них `/metrics`.
+
+Сначала проверил, что он действительно нашёл все Pod:
+
+```bash
+curl --silent \
+  'http://127.0.0.1:9090/api/v1/query?query=up%7Bnamespace%3D%22shop%22%7D' |
+jq '.data.result[] | {
+  service: .metric.service,
+  pod: .metric.pod,
+  up: .value[1]
+}'
+```
+
+```text
+shop-worker   shop-worker-84d87845c-xn5bj   1
+shop-worker   shop-worker-84d87845c-pmfbh   1
+shop-api      shop-api-547c5f8f59-6rtbr     1
+shop-api      shop-api-547c5f8f59-x52tm     1
+shop-api      shop-api-547c5f8f59-4qk9q     1
+```
+
+Все пять targets отдают `up=1`, Prometheus реально ходит на `/metrics`.
+
+## Три повода поднять тревогу
+
+`ShopApiDown` срабатывает, если у API нет ни одного живого scrape-target.
+Правило учитывает оба случая: метрика существует, но равна нулю, либо вообще
+пропала. Минутная задержка не даёт будить всех из-за короткого перезапуска.
+
+`ShopApiErrorBurst` смотрит, насколько вырос счётчик ошибок за две минуты.
+
+
+`ShopWorkerFailure` ловит хотя бы одну ошибку обработки за пять минут. Worker
+работает в фоне, поэтому без такого alert поломку можно долго не заметить.
+
+Правила приехали вместе с остальным чартом:
+
+```text
+service/shop-api created (server dry run)
+service/shop-worker created (server dry run)
+cluster.postgresql.cnpg.io/shop-db created (server dry run)
+servicemonitor.monitoring.coreos.com/shop created (server dry run)
+
+STATUS: deployed
+REVISION: 10
+DESCRIPTION: Upgrade complete
+```
+
+Чтобы проверить правила, поднял счётчик ошибок API. Через
+заданное окно `ShopApiErrorBurst` появился в Karma в состоянии firing:
+
+![ShopApiErrorBurst в Karma](pics/karma-shop-api-error-burst.png)
