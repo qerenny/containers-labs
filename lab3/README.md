@@ -24,7 +24,9 @@ GET  /metrics
 # Часть 1 -- поставим охранника
 
 В этой части нужен кто-то, кто будет смотреть на манифест до его создания.
-Этим кем-то будет Kyverno.
+Этим кем-то будет Kyverno. Для локального kind он проще Gatekeeper: политики
+остаются обычными Kubernetes-ресурсами, а проверки можно написать на CEL, не
+добавляя сюда ещё и Rego.
 
 ```bash
 helm upgrade --install kyverno kyverno/kyverno \
@@ -73,6 +75,10 @@ kind: ValidatingPolicy
 ```bash
 kubectl apply -f policy-tests/namespace.yaml
 ```
+
+Сами `ValidatingPolicy` кластерные, но системные namespaces из проверки
+исключил. Иначе ошибка в собственной политике могла бы заблокировать
+обновление Kyverno, мониторинга или системных компонентов.
 
 ## Первая политика, первые пострадавшие
 
@@ -130,6 +136,7 @@ Kyverno берёт Pod-правило и применяет его к `spec.temp
 ```text
 registry.k8s.io/
 docker.io/qerenny/
+ghcr.io/cloudnative-pg/
 ```
 
 Слеш на конце важен, иначе под префикс мог бы замаскироваться адрес вроде
@@ -147,6 +154,8 @@ app.kubernetes.io/part-of
 
 Запретил `securityContext.privileged: true`. Если `securityContext` или само
 поле `privileged` отсутствует, это нормально: по умолчанию оно равно `false`.
+Так Pod не сможет получить почти неограниченный доступ к ядру и устройствам
+ноды.
 
 Ну и запретил явный `:latest`:
 
@@ -544,7 +553,22 @@ ok
 }]
 ```
 
-Pod уже были запущены, Service уже настроен. Поэтому data plane продолжил жить.
+Чтобы отдельно не надеяться на старый заказ, создал ещё один уже после
+отключения apiserver. Worker в этот момент тоже отвечал:
+
+```text
+GET shop-worker:8080/health
+ok
+
+POST shop-api:8080/order
+{"id":2,"payload":{"item":"control-plane-down"},"status":"pending"}
+
+GET shop-api:8080/orders
+{"id":2,"payload":{"item":"control-plane-down"},"status":"processed"}
+```
+
+API смог записать новый заказ в PostgreSQL, а worker забрал его и поменял
+статус. Значит без control plane продолжили работать все три компонента.
 
 Вернул manifest обратно:
 
@@ -589,6 +613,12 @@ shop-api      shop-api-547c5f8f59-4qk9q     1
 ```
 
 Все пять targets отдают `up=1`, Prometheus реально ходит на `/metrics`.
+
+Туда же добавил dashboard `Shop`. Grafana забирает его из ConfigMap по label
+`grafana_dashboard: "1"`. На нём четыре графика: запросы и ошибки API,
+обработанные заказы и ошибки worker.
+
+![Метрики shop в Grafana](pics/grafana-shop-dashboard.png)
 
 ## Три повода поднять тревогу
 

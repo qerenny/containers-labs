@@ -41,7 +41,7 @@ spec:
             severity: warning
           annotations:
             summary: API is returning errors
-            description: The API has returned 5 or more HTTP 5xx errors in the last 2 minutes.
+            description: The API has reported 5 or more HTTP errors in the last 2 minutes.
             action: Check the Deployment, Pods, Service endpoints and the latest rollout.
 
         - alert: ShopWorkerFailure
@@ -55,5 +55,5 @@ spec:
             severity: critical
           annotations:
             summary: Worker is failing
-            description: The Worker has reported one or more failures in the last  minutes.
-            action: Check the Deployment, Pods, Service endpoints and the latest rollout.
+            description: The Worker has reported one or more failures in the last 5 minutes.
+            action: Check the Worker logs, its database connection and pending orders.
