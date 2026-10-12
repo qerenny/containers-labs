@@ -1,0 +1,17 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClasses.critical.name }}
+globalDefault: false
+value: {{ .Values.priorityClasses.critical.value | int }}
+description: "This priority class is used for critical pods in the shop application."
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClasses.batch.name }}
+value: {{ .Values.priorityClasses.batch.value | int }}
+globalDefault: false
+description: "This priority class is used for batch pods in the shop application."

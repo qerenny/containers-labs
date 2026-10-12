@@ -9,6 +9,8 @@ metadata:
 
 spec:
   instances: {{ .Values.postgres.instances }}
+  priorityClassName: {{ .Values.postgres.priorityClassName }}
+  enablePDB: {{ .Values.postgres.enablePDB }}
 
   inheritedMetadata:
     labels:

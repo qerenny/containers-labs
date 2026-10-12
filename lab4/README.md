@@ -230,3 +230,152 @@ shop-api-7685546b7c-q9vmg   1/1     Running   lab4-control-plane
 Получили ожидаемые `2+1`: разница равна единице, значит `maxSkew` соблюдён.
 Теперь отказ одной ноды не заберёт сразу все реплики API — хотя бы одна часть
 сервиса останется на второй.
+
+# Часть 5 -- Назначаем первых на выход
+
+Так, теперь говорим scheduler, что база и API нам всё-таки нужнее ночной
+аналитики. В values заводим два класса:
+
+```yaml
+priorityClasses:
+  critical:
+    name: shop-critical
+    value: 1000000
+  batch:
+    name: shop-batch
+    value: -1000
+```
+
+Добавили два `PriorityClass`,
+`priorityClassName` в Pod template API и batch, а для CNPG — прямо в
+`Cluster.spec`. Для API ещё сделали свой PDB, базе его и так создаёт оператор.
+
+Сначала, конечно, ищем несуществующий ресурс:
+
+```bash
+kubectl get pbd -n shop
+error: the server doesn't have a resource type "pbd"
+
+# pdb звучит всё-таки убедительнее
+kubectl get pdb -n shop
+NAME              MIN AVAILABLE   ALLOWED DISRUPTIONS
+shop-db-primary   1               0
+```
+
+
+Прогоняем весь чарт через настоящий API, но пока ничего не
+создаём:
+
+```bash
+kubectl apply --dry-run=server -f /tmp/lab4-rendered.yaml
+```
+
+```text
+priorityclass.scheduling.k8s.io/shop-critical created (server dry run)
+priorityclass.scheduling.k8s.io/shop-batch created (server dry run)
+poddisruptionbudget.policy/shop-api-pdb created (server dry run)
+deployment.apps/shop-api created (server dry run)
+deployment.apps/shop-batch created (server dry run)
+cluster.postgresql.cnpg.io/shop-db created (server dry run)
+```
+
+Схема живая, можно ставить. API и PostgreSQL отправляем в `shop-critical`,
+batch — в `shop-batch`. Ещё выравниваем requests и limits,
+чтобы получить `Guaranteed`. У batch они разные, он остаётся
+`Burstable`.
+
+На радостях ставим API `10m`, базе `20m`, потому что такие requests показал
+KRR:
+
+```bash
+helm upgrade shop lab4/helm/shop \
+  --namespace shop \
+  --wait \
+  --timeout 10m
+```
+
+И получаем десятиминутный Helm timeout и `CrashLoopBackOff`:
+
+```text
+UPGRADE FAILED:
+Deployment/shop/shop-api not ready: Updated: 1/3
+Deployment/shop/shop-worker not ready: Available: 0/2
+Cluster/shop/shop-db not ready: Cluster Is Not Ready
+context deadline exceeded
+```
+
+Смотрим Pod'ы и Events:
+
+```text
+shop-api      0/3   CrashLoopBackOff
+shop-worker   0/2   CrashLoopBackOff
+shop-db       Primary instance is being restarted without a switchover
+
+Startup probe failed: Client.Timeout exceeded while awaiting headers
+Readiness probe failed: context deadline exceeded
+Liveness probe failed: HTTP probe failed with statuscode: 503
+```
+
+Никакого `OOMKilled` нет. Тут мы сами задушили базу CPU limit'ом. Её probes не
+успевали ответить, а `/health` у API и worker ходит через `db.Ping()`. База
+тормозит — health даёт `503`,  liveness начинает бодро перезапускать вообще
+всё приложение.
+
+Requests от KRR оказались нормальной оценкой спокойного потребления, но плохим
+ потолком на старте. Поднимаем API и PostgreSQL до `100m`, причём сразу
+и request, и limit, чтобы не потерять `Guaranteed`.
+
+
+
+
+```bash
+helm upgrade shop lab4/helm/shop \
+  --namespace shop \
+  --wait \
+  --atomic \
+  --timeout 15m
+```
+
+Седьмая ревизия наконец доезжает:
+
+```text
+STATUS: deployed
+REVISION: 7
+DESCRIPTION: Upgrade complete
+```
+
+Что реально получил каждый
+Pod:
+
+```bash
+kubectl get pods -n shop \
+  -o custom-columns='NAME:.metadata.name,QOS:.status.qosClass,PRIORITY:.spec.priority,CLASS:.spec.priorityClassName'
+```
+
+```text
+NAME                         QOS          PRIORITY   CLASS
+shop-api-77fdc89-kksxd       Guaranteed   1000000    shop-critical
+shop-api-77fdc89-r2rzv       Guaranteed   1000000    shop-critical
+shop-api-77fdc89-xxnmm       Guaranteed   1000000    shop-critical
+shop-batch-7bb6b7db8-hzqch   Burstable    -1000      shop-batch
+shop-batch-7bb6b7db8-wb8gw   Burstable    -1000      shop-batch
+shop-db-1                    Guaranteed   1000000    shop-critical
+shop-worker-5f4cf8fb-p4dg4   Burstable    0          <none>
+shop-worker-5f4cf8fb-p9nmt   Burstable    0          <none>
+```
+
+Получилось как и хотели: О`Guaranteed` и самый приоритетный,
+batch ниже даже обычного worker. Теперь отдельно смотрим PDB:
+
+```bash
+kubectl get pdb -n shop
+```
+
+```text
+NAME              MIN AVAILABLE   ALLOWED DISRUPTIONS
+shop-api-pdb      2               1
+shop-db-primary   1               0
+```
+
+То есть из трёх API можно добровольно выселить один. Единственную базу — не могём. Сам priority пока никого не выгоняет, это случится только когда докатится
+более важный Pod и ему реально не хватит места.

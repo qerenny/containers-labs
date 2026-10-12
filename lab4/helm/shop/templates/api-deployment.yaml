@@ -28,6 +28,8 @@ spec:
         app.kubernetes.io/part-of: shop
 
     spec:
+      priorityClassName: {{ .Values.api.priorityClassName }}
+
       securityContext:
         runAsNonRoot: true
 

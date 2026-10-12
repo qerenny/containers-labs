@@ -1,0 +1,16 @@
+{{- if .Values.api.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+
+metadata:
+  name: {{ .Release.Name }}-api-pdb
+
+spec:
+  minAvailable: {{ .Values.api.pdb.minAvailable }}
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+      app.kubernetes.io/part-of: shop
+
+{{- end }}
