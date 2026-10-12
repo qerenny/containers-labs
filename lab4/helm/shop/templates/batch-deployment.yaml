@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: {{ .Release.Name }}-batch
+  labels:
+    app.kubernetes.io/name: batch
+    app.kubernetes.io/part-of: shop
+
+spec:
+  replicas: {{ .Values.batch.replicaCount }}
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: batch
+      app.kubernetes.io/part-of: shop
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: batch
+        app.kubernetes.io/part-of: shop
+
+    spec:
+      securityContext:
+        runAsNonRoot: true
+
+      containers:
+        - name: batch
+          image: "{{ .Values.batch.image.repository }}:{{ .Values.batch.image.tag }}"
+          imagePullPolicy: {{ .Values.batch.image.pullPolicy }}
+
+          env:
+            - name: BATCH_MEMORY_MIB
+              value: {{ .Values.batch.BATCH_MEMORY_MIB | quote}}
+            
+            - name: BATCH_CPU_WORKERS
+              value: {{ .Values.batch.BATCH_CPU_WORKERS | quote}}
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            privileged: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          resources:
+            {{- toYaml .Values.batch.resources | nindent 12 }}

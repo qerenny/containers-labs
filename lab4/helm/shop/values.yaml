@@ -1,0 +1,81 @@
+api:
+  replicaCount: 3
+
+  image:
+    repository: docker.io/qerenny/lab3-api
+    tag: "0.2.0"
+    pullPolicy: IfNotPresent
+
+  healthFail: false
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+    limits:
+      cpu: 100m
+      memory: 100Mi
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  scheduling:
+    mode: topologySpreadConstraints
+
+worker:
+  replicaCount: 2
+
+  image:
+    repository: docker.io/qerenny/lab3-worker
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+
+  healthFail: false
+  pollInterval: 2s
+
+  service:
+    type: ClusterIP
+    port: 8080
+
+  resources:
+    requests:
+      cpu: 10m
+      memory: 100Mi
+    limits:
+      cpu: 100m
+      memory: 100Mi
+      
+postgres:
+  instances: 1
+  storageSize: 1Gi
+
+  resources:
+    requests:
+      cpu: 20m
+      memory: 118Mi
+    limits:
+      cpu: 500m
+      memory: 118Mi
+
+
+batch:
+  replicaCount: 2
+  image:
+    repository: docker.io/qerenny/lab4-batch
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  
+  BATCH_MEMORY_MIB: 128
+  BATCH_CPU_WORKERS: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+
+monitoring:
+  interval: 15s
