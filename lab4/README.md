@@ -559,4 +559,146 @@ memory`.
 лимит `1Gi` не был достигнут: kubelet увидел давление на всю ноду и удалил Pod
 целиком, после чего Deployment создал новый объект.
 
+# Часть 8 -- SLA
+Сначала проверил сам сценарий коротким запуском: `2 req/s` на 15 секунд.
+Тридцать запросов прошли без ошибок, но для доказательства SLA такой прогон,
+конечно, слишком игрушечный.
+
+Выбрал `constant-arrival-rate`, потому что здесь важно зафиксировать именно
+предлагаемую системе нагрузку. 
+```javascript
+orders: {
+  executor: 'constant-arrival-rate',
+  rate: 20,
+  timeUnit: '1s',
+  duration: '6m',
+  preAllocatedVUs: 10,
+  maxVUs: 100,
+}
+```
+
+SLA сформулировал так: не менее 99% заказов создаются успешно, доля
+HTTP-ошибок меньше 1%, а 95% запросов завершаются быстрее 300 ms.
+
+```javascript
+thresholds: {
+  'http_req_duration{endpoint:order}': ['p(95)<300'],
+  'http_req_failed{endpoint:order}': ['rate<0.01'],
+  'checks{endpoint:order}': ['rate>0.99'],
+}
+```
+
+Первый заход с memory pressure пришлось не считать. Я слишком долго
+оставил batch в тяжёлом режиме, Deployment продолжал создавать ему замену,
+и eviction добрался уже до самого monitoring stack:
+
+```text
+monitoring-grafana-77b8b5d8db-bbwhg   3/3   Running
+monitoring-grafana-77b8b5d8db-gzp4t   0/3   Evicted
+monitoring-grafana-77b8b5d8db-m6z8k   0/3   Evicted
+monitoring-grafana-77b8b5d8db-pqfdt   0/3   Evicted
+monitoring-grafana-77b8b5d8db-x47jc   0/3   Evicted
+```
+
+Это не проблема priority как такового: порог kubelet действует на всю ноду,
+а бесконечное восстановление batch не прекращает давление после первой
+жертвы. Дождался `MemoryPressure=False`, проверил rollout Grafana и повторил
+полный шестиминутный прогон, уже снимая нужные доказательства.
+
+Итог лежит в [отчёте k6](reports/k6-sla.html):
+
+```text
+iterations:                         7201
+http_reqs:                          7201 (19.999 req/s)
+checks{endpoint:order}:             100%
+http_req_failed{endpoint:order}:    0%
+http_req_duration p(95):            77.29 ms
+http_req_duration max:              499.49 ms
+```
+
+Все thresholds прошли. Максимум однажды дошёл до 499.49 ms, но SLA задан: 95% запросов уложились в 77.29 ms, то есть запас до 300 ms остался
+довольно большой.
+
+Вернуть безопасные `BATCH_MEMORY_MIB=128` и limit `512Mi` прямо внутри окна
+k6 я не успел. Применил их уже после теста, поэтому на HTML-графике нет
+отдельного участка восстановления. 
+
+
+Со стороны сервера Grafana показывает те же примерно `20 req/s`, worker
+продолжает обрабатывать заказы, а его failure rate остаётся нулевым:
+
+![Метрики критического пути под нагрузкой](pics/grafana-critical-path-load.png)
+
+Некритичный batch в это время действительно деградировал: kubelet выставлял
+`MemoryPressure=True` и удалял Pod'ы, которые потребляли примерно 790 Mi при
+request `256Mi`.
+
+![MemoryPressure и eviction batch](pics/batch-memory-eviction.png)
+
+
+# Часть 9 -- Prometheus
+В чарт добавил `ServiceMonitor`, `PrometheusRule` и ConfigMap с dashboard для
+Grafana. Сначала проверил их обычным `kubectl get`, но это доказывает только
+наличие объектов в Kubernetes API. `ServiceMonitor` ещё должен подобрать
+Operator, а Prometheus — получить из него реальные targets. Поэтому полез
+уже в API самого Prometheus:
+
+```text
+POD                              SERVICE       HEALTH
+shop-worker-5f4cf8fb-p9nmt       shop-worker   up
+shop-api-77fdc89-42tsp           shop-api      up
+shop-worker-5f4cf8fb-p4dg4       shop-worker   up
+shop-api-77fdc89-p5g4t           shop-api      up
+shop-api-77fdc89-xxnmm           shop-api      up
+```
+
+Там же проверил, что Prometheus действительно загрузил все три правила, а не
+просто рядом лежит объект `PrometheusRule`:
+
+```text
+ShopApiDown          inactive
+ShopApiErrorBurst    inactive
+ShopWorkerFailure    inactive
+```
+
+Алерты закрывают разные поломки критического пути:
+
+- `ShopApiDown` ждёт минуту без единого доступного target API. Это полный
+  отказ входа в критический путь, поэтому severity `critical`.
+- `ShopApiErrorBurst` ловит минимум пять HTTP-ошибок API за две минуты. API
+  ещё может быть `up`, но уже деградировать, поэтому severity `warning`.
+- `ShopWorkerFailure` срабатывает после одной ошибки обработки за пять минут.
+  Ответ API сам по себе не гарантирует, что заказ обработан асинхронно,
+  поэтому severity `critical`.
+
+С UI тоже получилось не с первого раза: Karma сначала не открывалась через
+port-forward. Проверил, что её Pod уже `Running`, и поднял туннель заново:
+
+```bash
+kubectl port-forward -n monitoring svc/karma 18081:8080
+```
+
+Для проверки выбрал `ShopApiErrorBurst` и отдельно отправил десять сломанных
+POST. Их нельзя посылать через k6: тогда искусственные `400` испортили бы
+клиентскую статистику SLA.
+
+```bash
+for request in $(seq 1 10); do
+  curl -sS -o /dev/null -w '%{http_code}\n' \
+    -X POST \
+    -H 'Content-Type: application/json' \
+    --data '{' \
+    http://127.0.0.1:18080/order
+done
+```
+
+После `for: 30s` правило перешло в `firing`. Сначала это видно непосредственно
+в Grafana:
+
+![ShopApiErrorBurst в состоянии firing](pics/grafana-api-error-alert.png)
+
+Затем тот же алерт появился в Karma:
+
+![ShopApiErrorBurst в Karma](pics/karma-api-error-alert.png)
+
 
