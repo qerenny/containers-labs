@@ -68,7 +68,7 @@ postgres:
 
 
 batch:
-  replicaCount: 8
+  replicaCount: 6
   priorityClassName: shop-batch
 
 

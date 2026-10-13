@@ -442,4 +442,121 @@ UID принадлежал `shop-api-77fdc89-c47zf`. Все
 осталась `Pending`: контроллер держит  желаемые восемь реплик, но
 разместить их всё равно решает scheduler.
 
+# Часть 7 -- Теперь кончается уже настоящая память
+
+Перед опытом уменьшаем batch до шести реплик, чтобы старые `Pending` из
+предыдущей части не путались с eviction. Заодно смотрим настройки kubelet и
+обнаруживаем сюрприз:
+
+
+```json
+{
+  "evictionHard": {
+    "imagefs.available": "0%",
+    "nodefs.available": "0%",
+    "nodefs.inodesFree": "0%"
+  }
+}
+```
+
+Порога `memory.available` вообще нет. Если просто начать есть память в таком
+виде, раньше kubelet может прийти kernel OOM killer, а это уже другое.
+Добавляем в `KubeletConfiguration` threshold `12Gi` и
+перезапускаем kubelet на обеих kind-нодах. 
+
+```bash
+kubectl wait nodes --all \
+  --for=condition=Ready \
+  --timeout=120s
+```
+
+```text
+lab4-control-plane
+{
+  "imagefs.available": "0%",
+  "memory.available": "12Gi",
+  "nodefs.available": "0%",
+  "nodefs.inodesFree": "0%"
+}
+lab4-worker
+{
+  "imagefs.available": "0%",
+  "memory.available": "12Gi",
+  "nodefs.available": "0%",
+  "nodefs.inodesFree": "0%"
+}
+```
+
+Сам batch временно разгоняем так:
+
+```yaml
+batch:
+  replicaCount: 6
+  BATCH_MEMORY_MIB: 768
+  resources:
+    requests:
+      cpu: "2"
+      memory: 256Mi
+    limits:
+      cpu: "3"
+      memory: 1Gi
+```
+
+Потребление выше request, но всё ещё ниже собственного limit. После
+`helm upgrade` `MemoryPressure` на control-plane меняется с `False` на `True`,
+и kubelet выбирает две жертвы:
+
+```text
+NODE                 MEMORY_PRESSURE
+lab4-control-plane   False
+lab4-worker          False
+lab4-control-plane   True
+lab4-control-plane   True
+```
+
+```text
+Warning  Evicted  pod/shop-batch-58d9b4ddd9-hlwgd
+The node was low on resource: memory. Threshold quantity: 12Gi,
+available: 12462136Ki. Container batch was using 790340Ki,
+request is 256Mi, has larger consumption of memory.
+
+Warning  Evicted  pod/shop-batch-58d9b4ddd9-vvt2t
+The node was low on resource: memory. Threshold quantity: 12Gi,
+available: 12464028Ki. Container batch was using 790556Ki,
+request is 256Mi, has larger consumption of memory.
+```
+
+```bash
+kubectl get pods -n shop \
+  -o custom-columns='NAME:.metadata.name,PHASE:.status.phase,QOS:.status.qosClass,PRIORITY:.spec.priority,NODE:.spec.nodeName'
+```
+
+```text
+NAME                          PHASE       QOS          PRIORITY   NODE
+shop-api-77fdc89-42tsp        Running     Guaranteed   1000000    lab4-worker
+shop-api-77fdc89-p5g4t        Running     Guaranteed   1000000    lab4-worker
+shop-api-77fdc89-xxnmm        Running     Guaranteed   1000000    lab4-worker
+shop-batch-58d9b4ddd9-hlwgd   Succeeded   Burstable    -1000      lab4-control-plane
+shop-batch-58d9b4ddd9-vvt2t   Succeeded   Burstable    -1000      lab4-control-plane
+shop-db-1                     Running     Guaranteed   1000000    lab4-worker
+```
+
+То есть первым ушёл именно `Burstable` batch с priority `-1000`, который к
+тому же заметно вышел за свой memory request. API и PostgreSQL с
+`Guaranteed` и priority `1000000` всё это время остались `Running`.
+Deployment, конечно, сразу начал создавать batch заново. Один из новых Pod поэтому успел оказаться в
+`Pending`, пока нода оставалась под давлением.
+
+В списке Pod вытесненные процессы выглядели как `Succeeded/Completed`, а не
+`Failed/Evicted`. Это наш batch аккуратно поймал `SIGTERM` и завершился с
+нулевым кодом,
+причину доказывает событие kubelet с `reason=Evicted` и сообщением `The node was low on resource:
+memory`.
+
+Вот это отличие от `OOMKilled`. При OOM по собственному limit решение
+принимает cgroup, в `lastState.terminated.reason` появляется
+`OOMKilled`, а контейнер обычно перезапускается внутри того же Pod. Здесь
+лимит `1Gi` не был достигнут: kubelet увидел давление на всю ноду и удалил Pod
+целиком, после чего Deployment создал новый объект.
+
 
