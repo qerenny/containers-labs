@@ -1,7 +1,7 @@
 # Навигация
 
 <p align="center">
-  <img src="./pics/thimking.jpeg" alt="Навигация по лабораторным работам" width="300">
+  <img src="./pics/thimking.jpeg" alt="Навигация по лабораторным работам" width="500">
 </p>
 
 | # | Лабораторная | Материалы | Статус |
@@ -16,24 +16,24 @@
 ## Я после первой закрытой лабы
 
 <p align="center">
-  <img src="./pics/falling.jpeg" alt="Я после первой закрытой лабы" width="300">
+  <img src="./pics/falling.jpeg" alt="Я после первой закрытой лабы" width="500">
 </p>
 
 ## Я после двух закрытых лаб
 
 <p align="center">
-  <img src="./pics/Buhh.jpeg" alt="Я после двух закрытых лаб" width="300">
+  <img src="./pics/Buhh.jpeg" alt="Я после двух закрытых лаб" width="500">
 </p>
 
 ## Я после трёх закрытых лаб
 
 <p align="center">
-  <img src="./pics/stupidity.jpeg" alt="Я после трёх закрытых лаб" width="300">
+  <img src="./pics/stupidity.jpeg" alt="Я после трёх закрытых лаб" width="500">
 </p>
 
 ## Я после четырёх закрытых лаб
 
 <p align="center">
-  <img src="./pics/unhealthy.jpeg" alt="Я после четырёх закрытых лаб" width="300">
+  <img src="./pics/unhealthy.jpeg" alt="Я после четырёх закрытых лаб" width="500">
 </p>
 
