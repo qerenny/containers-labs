@@ -68,7 +68,7 @@ postgres:
 
 
 batch:
-  replicaCount: 2
+  replicaCount: 8
   priorityClassName: shop-batch
 
 
@@ -81,11 +81,11 @@ batch:
   BATCH_CPU_WORKERS: 2
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 200m
+      cpu: "2"
       memory: 256Mi
+    limits:
+      cpu: "3"
+      memory: 512Mi
 
 
 monitoring:

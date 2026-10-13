@@ -379,3 +379,67 @@ shop-db-primary   1               0
 
 То есть из трёх API можно добровольно выселить один. Единственную базу — не могём. Сам priority пока никого не выгоняет, это случится только когда докатится
 более важный Pod и ему реально не хватит места.
+
+# Часть 6 -- Теперь места действительно не хватает
+
+С исходными `100m` у batch пришлось бы наплодить десятки Pod'ов: на каждой
+ноде доступно по восемь CPU. Для эксперимента сделаю одну задачу 
+тяжелее:
+
+```yaml
+batch:
+  replicaCount: 8
+  resources:
+    requests:
+      cpu: "2"
+      memory: 256Mi
+    limits:
+      cpu: "3"
+      memory: 512Mi
+```
+
+Главное для этого опыта — request достаточно большой,
+чтобы упереться в ёмкость нод небольшим числом реплик. После `helm upgrade`
+из восьми batch разместились шесть, ещё два остались ждать:
+
+```text
+NAME                          STATUS    NODE
+shop-batch-54b7b6cc96-2r6jg  Running   lab4-worker
+shop-batch-54b7b6cc96-6k2nf  Running   lab4-control-plane
+shop-batch-54b7b6cc96-8mdzw  Running   lab4-control-plane
+shop-batch-54b7b6cc96-8wgfl  Running   lab4-worker
+shop-batch-54b7b6cc96-qsr45  Running   lab4-control-plane
+shop-batch-54b7b6cc96-tjjdp  Running   lab4-worker
+shop-batch-54b7b6cc96-44crr  Pending   <none>
+shop-batch-54b7b6cc96-q4qtr  Pending   <none>
+```
+
+Scheduler объяснил это так:
+
+```text
+0/2 nodes are available: 2 Insufficient cpu.
+preemption: 0/2 nodes are available: 2 No preemption victims found for incoming pod.
+```
+
+`Insufficient cpu` здесь означает нехватку не фактических тактов, а свободного
+бюджета requests. А вытеснить кого-нибудь новый
+batch не может: его priority равен `-1000`, остальные batch имеют тот же
+priority, а API, PostgreSQL и обычные worker стоят выше.
+
+Чтобы увидеть уже настоящее preemption, временно поднимаем API с трёх до 25
+реплик. Когда очередной `shop-critical` уже не помещается,
+scheduler находит ему жертву среди `shop-batch`:
+
+```text
+Preempted  pod/shop-batch-54b7b6cc96-qsr45
+Preempted by pod 67d0fba9-736e-41f6-a326-89954db0e8bc
+on node lab4-control-plane
+```
+
+UID принадлежал `shop-api-77fdc89-c47zf`. Все
+25 API стали `Running`, а Deployment batch тут же создал замену
+`shop-batch-54b7b6cc96-lzm7m`. Замена
+осталась `Pending`: контроллер держит  желаемые восемь реплик, но
+разместить их всё равно решает scheduler.
+
+
