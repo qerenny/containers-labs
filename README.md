@@ -1,5 +1,8 @@
 # Навигация
-![](./pics/thimking.jpeg)
+
+<p align="center">
+  <img src="./pics/thimking.jpeg" alt="Навигация по лабораторным работам" width="300">
+</p>
 
 | # | Лабораторная | Материалы | Статус |
 |:-:|---|---|:---:|
@@ -12,17 +15,25 @@
 
 ## Я после первой закрытой лабы
 
-![Я после первой закрытой лабы](./pics/falling.jpeg)
+<p align="center">
+  <img src="./pics/falling.jpeg" alt="Я после первой закрытой лабы" width="300">
+</p>
 
 ## Я после двух закрытых лаб
 
-![Я после двух закрытых лаб](./pics/Buhh.jpeg)
+<p align="center">
+  <img src="./pics/Buhh.jpeg" alt="Я после двух закрытых лаб" width="300">
+</p>
 
 ## Я после трёх закрытых лаб
 
-![Я после трёх закрытых лаб))((()))](./pics/stupidity.jpeg)
+<p align="center">
+  <img src="./pics/stupidity.jpeg" alt="Я после трёх закрытых лаб" width="300">
+</p>
 
 ## Я после четырёх закрытых лаб
 
-![Я после четырёх закрытых лаб](./pics/unhealthy.jpeg)
+<p align="center">
+  <img src="./pics/unhealthy.jpeg" alt="Я после четырёх закрытых лаб" width="300">
+</p>
 
