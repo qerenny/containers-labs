@@ -1,0 +1,57 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: shop
+    app.kubernetes.io/part-of: shop
+spec:
+  groups:
+    - name: shop-critical
+      rules:
+        - alert: ShopApiDown
+          expr: |
+            max(up{
+              namespace="{{ .Release.Namespace }}",
+              service="{{ .Release.Name }}-api"
+            }) == 0
+            or
+            absent(up{
+              namespace="{{ .Release.Namespace }}",
+              service="{{ .Release.Name }}-api"
+            })
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: API is unavailable
+            description: No healthy API scrape target has been available for one minute.
+            action: Check the Deployment, Pods, Service endpoints and the latest rollout.
+
+        - alert: ShopApiErrorBurst
+          expr: |
+            increase(shop_api_http_errors_total{
+              namespace="{{ .Release.Namespace }}",
+              service="{{ .Release.Name }}-api"
+            }[2m]) >= 5
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: API is returning errors
+            description: The API has reported 5 or more HTTP errors in the last 2 minutes.
+            action: Check the Deployment, Pods, Service endpoints and the latest rollout.
+
+        - alert: ShopWorkerFailure
+          expr: |
+            increase(shop_worker_failures_total{
+              namespace="{{ .Release.Namespace }}",
+              service="{{ .Release.Name }}-worker"
+            }[5m]) > 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: Worker is failing
+            description: The Worker has reported one or more failures in the last 5 minutes.
+            action: Check the Worker logs, its database connection and pending orders.

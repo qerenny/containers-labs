@@ -1,0 +1,6 @@
+apiVersion: v2
+name: shop
+description: Starter Helm chart for the lab5 shop
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

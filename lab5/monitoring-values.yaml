@@ -1,0 +1,42 @@
+defaultRules:
+  create: false
+
+alertmanager:
+  enabled: true
+  tplConfig: true
+  stringConfig: |-
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 5s
+      group_interval: 30s
+      repeat_interval: 4h
+      receiver: sink
+    receivers:
+      - name: sink
+
+grafana:
+  service:
+    type: ClusterIP
+  persistence:
+    enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 6h
+
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        memory: 1Gi

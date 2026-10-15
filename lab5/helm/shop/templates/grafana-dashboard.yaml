@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-grafana-dashboard
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: shop
+    app.kubernetes.io/part-of: shop
+data:
+  shop.json: |-
+    {
+      "annotations": {"list": []},
+      "editable": false,
+      "graphTooltip": 1,
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "id": 1,
+          "targets": [
+            {
+              "expr": "sum(rate(shop_api_http_requests_total{namespace=\"{{ .Release.Namespace }}\", service=\"{{ .Release.Name }}-api\"}[2m]))",
+              "legendFormat": "API requests",
+              "refId": "A"
+            }
+          ],
+          "title": "API request rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "id": 2,
+          "targets": [
+            {
+              "expr": "sum(rate(shop_api_http_errors_total{namespace=\"{{ .Release.Namespace }}\", service=\"{{ .Release.Name }}-api\"}[2m]))",
+              "legendFormat": "API errors",
+              "refId": "A"
+            }
+          ],
+          "title": "API error rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "id": 3,
+          "targets": [
+            {
+              "expr": "sum(rate(shop_worker_processed_orders_total{namespace=\"{{ .Release.Namespace }}\", service=\"{{ .Release.Name }}-worker\"}[2m]))",
+              "legendFormat": "Processed orders",
+              "refId": "A"
+            }
+          ],
+          "title": "Worker processing rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "id": 4,
+          "targets": [
+            {
+              "expr": "sum(rate(shop_worker_failures_total{namespace=\"{{ .Release.Namespace }}\", service=\"{{ .Release.Name }}-worker\"}[5m]))",
+              "legendFormat": "Worker failures",
+              "refId": "A"
+            }
+          ],
+          "title": "Worker failure rate",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 41,
+      "tags": ["lab5", "shop", "starter"],
+      "templating": {"list": []},
+      "time": {"from": "now-15m", "to": "now"},
+      "timezone": "browser",
+      "title": "Shop — Lab 5 starter",
+      "uid": "lab5-shop-starter",
+      "version": 1
+    }

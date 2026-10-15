@@ -1,0 +1,34 @@
+kubeProxyReplacement: false
+
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+ipam:
+  mode: kubernetes
+
+k8s:
+  requireIPv4PodCIDR: true
+
+hubble:
+  enabled: true
+
+  relay:
+    enabled: true
+
+  ui:
+    enabled: true
+
+  metrics:
+    enableOpenMetrics: true
+    enabled:
+      - dns:query;ignoreAAAA
+      - drop
+      - tcp
+      - flow
+
+prometheus:
+  enabled: true
+
+operator:
+  prometheus:
+    enabled: true
