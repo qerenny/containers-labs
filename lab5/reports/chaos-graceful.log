@@ -1,0 +1,78 @@
+Starting pod chaos in namespace=shop for 240s, interval=5s
+2026-10-15T22:20:59+00:00 deleting pod=shop-api-59bf89865c-4xxqs component=api ip=10.50.3.168 ready=api:3,worker:2 api_endpoints=[10.50.1.184 10.50.3.168 10.50.1.219 ]
+pod "shop-api-59bf89865c-4xxqs" deleted from shop namespace
+2026-10-15T22:21:06+00:00 deleting pod=shop-api-59bf89865c-5xxws component=api ip=10.50.1.219 ready=api:2,worker:2 api_endpoints=[10.50.1.184 10.50.1.219 ]
+pod "shop-api-59bf89865c-5xxws" deleted from shop namespace
+2026-10-15T22:21:12+00:00 deleting pod=shop-api-59bf89865c-pqvh6 component=api ip=10.50.1.184 ready=api:2,worker:2 api_endpoints=[10.50.1.184 10.50.3.31 ]
+pod "shop-api-59bf89865c-pqvh6" deleted from shop namespace
+2026-10-15T22:21:19+00:00 deleting pod=shop-api-59bf89865c-pb2b5 component=api ip=10.50.1.44 ready=api:2,worker:2 api_endpoints=[10.50.3.31 10.50.1.44 ]
+pod "shop-api-59bf89865c-pb2b5" deleted from shop namespace
+2026-10-15T22:21:25+00:00 deleting pod=shop-api-59bf89865c-zdhkj component=api ip=10.50.1.136 ready=api:2,worker:2 api_endpoints=[10.50.3.31 10.50.1.136 ]
+pod "shop-api-59bf89865c-zdhkj" deleted from shop namespace
+2026-10-15T22:21:31+00:00 deleting pod=shop-api-59bf89865c-mmz2c component=api ip=10.50.1.126 ready=api:3,worker:2 api_endpoints=[10.50.3.31 10.50.1.126 10.50.1.245 ]
+pod "shop-api-59bf89865c-mmz2c" deleted from shop namespace
+2026-10-15T22:21:38+00:00 deleting pod=shop-worker-5db945fbd7-6m9xm component=worker ip=10.50.1.188 ready=api:2,worker:2 api_endpoints=[10.50.3.31 10.50.1.245 ]
+pod "shop-worker-5db945fbd7-6m9xm" deleted from shop namespace
+2026-10-15T22:21:44+00:00 deleting pod=shop-api-59bf89865c-9rvxk component=api ip=10.50.3.31 ready=api:3,worker:2 api_endpoints=[10.50.3.31 10.50.1.245 10.50.1.76 ]
+pod "shop-api-59bf89865c-9rvxk" deleted from shop namespace
+2026-10-15T22:21:50+00:00 deleting pod=shop-worker-5db945fbd7-spnrl component=worker ip=10.50.1.197 ready=api:3,worker:2 api_endpoints=[10.50.1.245 10.50.1.76 10.50.3.103 ]
+pod "shop-worker-5db945fbd7-spnrl" deleted from shop namespace
+2026-10-15T22:21:57+00:00 deleting pod=shop-api-59bf89865c-xq6t7 component=api ip=10.50.1.245 ready=api:3,worker:1 api_endpoints=[10.50.1.245 10.50.1.76 10.50.3.103 ]
+pod "shop-api-59bf89865c-xq6t7" deleted from shop namespace
+2026-10-15T22:22:03+00:00 deleting pod=shop-api-59bf89865c-75hr7 component=api ip=10.50.1.91 ready=api:2,worker:2 api_endpoints=[10.50.1.76 10.50.3.103 ]
+pod "shop-api-59bf89865c-75hr7" deleted from shop namespace
+2026-10-15T22:22:09+00:00 deleting pod=shop-api-59bf89865c-j24ww component=api ip=10.50.3.103 ready=api:2,worker:2 api_endpoints=[10.50.1.76 10.50.3.103 ]
+pod "shop-api-59bf89865c-j24ww" deleted from shop namespace
+2026-10-15T22:22:16+00:00 deleting pod=shop-api-59bf89865c-tbvpd component=api ip=10.50.1.76 ready=api:2,worker:2 api_endpoints=[10.50.1.76 10.50.1.64 ]
+pod "shop-api-59bf89865c-tbvpd" deleted from shop namespace
+2026-10-15T22:22:22+00:00 deleting pod=shop-api-59bf89865c-cd4jz component=api ip=10.50.1.13 ready=api:2,worker:2 api_endpoints=[10.50.1.64 10.50.3.36 ]
+pod "shop-api-59bf89865c-cd4jz" deleted from shop namespace
+2026-10-15T22:22:28+00:00 deleting pod=shop-api-59bf89865c-n8mwm component=api ip=10.50.1.95 ready=api:2,worker:2 api_endpoints=[10.50.1.64 10.50.3.36 ]
+pod "shop-api-59bf89865c-n8mwm" deleted from shop namespace
+2026-10-15T22:22:35+00:00 deleting pod=shop-worker-5db945fbd7-7z4xd component=worker ip=10.50.1.69 ready=api:2,worker:2 api_endpoints=[10.50.1.64 10.50.3.36 ]
+pod "shop-worker-5db945fbd7-7z4xd" deleted from shop namespace
+2026-10-15T22:22:41+00:00 deleting pod=shop-api-59bf89865c-p9jt2 component=api ip=10.50.1.65 ready=api:3,worker:1 api_endpoints=[10.50.1.64 10.50.3.36 10.50.1.65 ]
+pod "shop-api-59bf89865c-p9jt2" deleted from shop namespace
+2026-10-15T22:22:47+00:00 deleting pod=shop-worker-5db945fbd7-459xv component=worker ip=10.50.3.145 ready=api:2,worker:2 api_endpoints=[10.50.1.64 10.50.3.36 ]
+pod "shop-worker-5db945fbd7-459xv" deleted from shop namespace
+2026-10-15T22:22:54+00:00 deleting pod=shop-api-59bf89865c-25mmp component=api ip=10.50.1.154 ready=api:3,worker:1 api_endpoints=[10.50.1.64 10.50.3.36 10.50.1.154 ]
+pod "shop-api-59bf89865c-25mmp" deleted from shop namespace
+2026-10-15T22:23:00+00:00 deleting pod=shop-worker-5db945fbd7-p87d8 component=worker ip=10.50.3.62 ready=api:3,worker:2 api_endpoints=[10.50.1.64 10.50.3.36 10.50.1.186 ]
+pod "shop-worker-5db945fbd7-p87d8" deleted from shop namespace
+2026-10-15T22:23:06+00:00 deleting pod=shop-api-59bf89865c-nkcjn component=api ip=10.50.3.36 ready=api:3,worker:2 api_endpoints=[10.50.1.64 10.50.3.36 10.50.1.186 ]
+pod "shop-api-59bf89865c-nkcjn" deleted from shop namespace
+2026-10-15T22:23:12+00:00 deleting pod=shop-api-59bf89865c-7hfdh component=api ip=10.50.1.186 ready=api:3,worker:2 api_endpoints=[10.50.1.64 10.50.1.186 10.50.3.132 ]
+pod "shop-api-59bf89865c-7hfdh" deleted from shop namespace
+2026-10-15T22:23:19+00:00 deleting pod=shop-worker-5db945fbd7-5m7q6 component=worker ip=10.50.3.128 ready=api:2,worker:2 api_endpoints=[10.50.1.64 10.50.3.132 ]
+pod "shop-worker-5db945fbd7-5m7q6" deleted from shop namespace
+2026-10-15T22:23:25+00:00 deleting pod=shop-worker-5db945fbd7-x96p6 component=worker ip=10.50.1.241 ready=api:3,worker:1 api_endpoints=[10.50.1.64 10.50.3.132 10.50.1.209 ]
+pod "shop-worker-5db945fbd7-x96p6" deleted from shop namespace
+2026-10-15T22:23:31+00:00 deleting pod=shop-worker-5db945fbd7-tsxm2 component=worker ip=10.50.3.63 ready=api:3,worker:1 api_endpoints=[10.50.1.64 10.50.3.132 10.50.1.209 ]
+pod "shop-worker-5db945fbd7-tsxm2" deleted from shop namespace
+2026-10-15T22:23:38+00:00 deleting pod=shop-worker-5db945fbd7-kjc5t component=worker ip=10.50.1.56 ready=api:3,worker:2 api_endpoints=[10.50.1.64 10.50.3.132 10.50.1.209 ]
+pod "shop-worker-5db945fbd7-kjc5t" deleted from shop namespace
+2026-10-15T22:23:44+00:00 deleting pod=shop-api-59bf89865c-czd6n component=api ip=10.50.1.209 ready=api:3,worker:1 api_endpoints=[10.50.1.64 10.50.3.132 10.50.1.209 ]
+pod "shop-api-59bf89865c-czd6n" deleted from shop namespace
+2026-10-15T22:23:51+00:00 deleting pod=shop-api-59bf89865c-lbpdq component=api ip=10.50.1.64 ready=api:2,worker:2 api_endpoints=[10.50.1.64 10.50.3.132 ]
+pod "shop-api-59bf89865c-lbpdq" deleted from shop namespace
+2026-10-15T22:23:57+00:00 deleting pod=shop-worker-5db945fbd7-qkns9 component=worker ip=10.50.1.234 ready=api:3,worker:2 api_endpoints=[10.50.3.132 10.50.1.164 10.50.1.131 ]
+pod "shop-worker-5db945fbd7-qkns9" deleted from shop namespace
+2026-10-15T22:24:04+00:00 deleting pod=shop-api-59bf89865c-zbrlx component=api ip=10.50.3.132 ready=api:3,worker:1 api_endpoints=[10.50.3.132 10.50.1.164 10.50.1.131 ]
+pod "shop-api-59bf89865c-zbrlx" deleted from shop namespace
+2026-10-15T22:24:10+00:00 deleting pod=shop-worker-5db945fbd7-n58sq component=worker ip=10.50.3.94 ready=api:2,worker:2 api_endpoints=[10.50.1.164 10.50.1.131 ]
+pod "shop-worker-5db945fbd7-n58sq" deleted from shop namespace
+2026-10-15T22:24:16+00:00 deleting pod=shop-worker-5db945fbd7-sc95r component=worker ip=10.50.1.179 ready=api:3,worker:2 api_endpoints=[10.50.1.164 10.50.1.131 10.50.3.223 ]
+pod "shop-worker-5db945fbd7-sc95r" deleted from shop namespace
+2026-10-15T22:24:23+00:00 deleting pod=shop-api-59bf89865c-pfpdp component=api ip=10.50.1.131 ready=api:3,worker:1 api_endpoints=[10.50.1.164 10.50.1.131 10.50.3.223 ]
+pod "shop-api-59bf89865c-pfpdp" deleted from shop namespace
+2026-10-15T22:24:29+00:00 deleting pod=shop-api-59bf89865c-q7pmh component=api ip=10.50.1.28 ready=api:2,worker:2 api_endpoints=[10.50.1.164 10.50.3.223 ]
+pod "shop-api-59bf89865c-q7pmh" deleted from shop namespace
+2026-10-15T22:24:35+00:00 deleting pod=shop-api-59bf89865c-kkxrs component=api ip=10.50.1.126 ready=api:2,worker:2 api_endpoints=[10.50.1.164 10.50.3.223 ]
+pod "shop-api-59bf89865c-kkxrs" deleted from shop namespace
+2026-10-15T22:24:42+00:00 deleting pod=shop-api-59bf89865c-22jk4 component=api ip=10.50.3.223 ready=api:3,worker:2 api_endpoints=[10.50.1.164 10.50.3.223 10.50.1.154 ]
+pod "shop-api-59bf89865c-22jk4" deleted from shop namespace
+2026-10-15T22:24:48+00:00 deleting pod=shop-api-59bf89865c-j76q8 component=api ip=10.50.1.164 ready=api:2,worker:2 api_endpoints=[10.50.1.164 10.50.1.154 ]
+pod "shop-api-59bf89865c-j76q8" deleted from shop namespace
+2026-10-15T22:24:55+00:00 deleting pod=shop-api-59bf89865c-2k5db component=api ip=10.50.3.31 ready=api:3,worker:2 api_endpoints=[10.50.1.154 10.50.3.31 10.50.1.204 ]
+pod "shop-api-59bf89865c-2k5db" deleted from shop namespace
+Pod chaos finished

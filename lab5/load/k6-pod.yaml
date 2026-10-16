@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: k6-order
+  namespace: shop
+  labels:
+    app.kubernetes.io/name: load-client
+    app.kubernetes.io/part-of: shop
+
+spec:
+  restartPolicy: Never
+  terminationGracePeriodSeconds: 5
+
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 12345
+    runAsGroup: 12345
+    fsGroup: 12345
+
+  containers:
+    - name: k6
+      image: grafana/k6:0.54.0
+      imagePullPolicy: IfNotPresent
+
+      command:
+        - /bin/sh
+        - -c
+
+      args:
+        - |
+          set +e
+          echo "k6 starts in 10 seconds"
+          sleep 10
+          touch /results/started
+          k6 run /scripts/order.js
+          status=$?
+          echo "$status" > /results/exit-code
+          touch /results/finished
+          sleep 3600
+          exit "$status"
+
+      env:
+        - name: BASE_URL
+          value: http://shop-api:8080
+        - name: ORDER_RATE
+          value: "20"
+        - name: TEST_DURATION
+          value: 4m
+        - name: K6_WEB_DASHBOARD
+          value: "true"
+        - name: K6_WEB_DASHBOARD_PERIOD
+          value: 1s
+        - name: K6_WEB_DASHBOARD_EXPORT
+          value: /results/k6-chaos.html
+
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+
+      volumeMounts:
+        - name: script
+          mountPath: /scripts
+          readOnly: true
+        - name: results
+          mountPath: /results
+
+  volumes:
+    - name: script
+      configMap:
+        name: k6-order-script
+    - name: results
+      emptyDir: {}

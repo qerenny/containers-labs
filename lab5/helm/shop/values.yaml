@@ -1,6 +1,9 @@
 api:
   replicaCount: 3
 
+  terminationGracePeriodSeconds: 20
+  preStopSleepSeconds: 5
+
   image:
     repository: docker.io/qerenny/lab3-api
     tag: "0.2.0"

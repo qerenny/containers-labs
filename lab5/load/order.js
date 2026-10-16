@@ -19,8 +19,8 @@ export const options = {
   },
   thresholds: {
     'http_req_duration{endpoint:order}': ['p(95)<300'],
-    'http_req_failed{endpoint:order}': ['rate<0.01'],
-    'checks{endpoint:order}': ['rate>0.99'],
+    'http_req_failed{endpoint:order}': ['rate==0'],
+    'checks{endpoint:order}': ['rate==1'],
   },
 };
 
@@ -37,6 +37,17 @@ export default function () {
       tags: { endpoint: 'order' },
     },
   );
+
+  if (response.status !== 201) {
+    console.error(JSON.stringify({
+      time: new Date().toISOString(),
+      status: response.status,
+      error: response.error,
+      error_code: response.error_code,
+      remote_ip: response.remote_ip,
+      duration_ms: response.timings.duration,
+    }));
+  }
 
   check(
     response,

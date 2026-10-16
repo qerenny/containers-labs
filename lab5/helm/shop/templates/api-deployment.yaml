@@ -28,6 +28,8 @@ spec:
         app.kubernetes.io/part-of: shop
 
     spec:
+      terminationGracePeriodSeconds: {{ .Values.api.terminationGracePeriodSeconds }}
+
       securityContext:
         runAsNonRoot: true
 
@@ -71,6 +73,11 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 3
+
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ .Values.api.preStopSleepSeconds }}
 
           securityContext:
             allowPrivilegeEscalation: false
