@@ -778,34 +778,7 @@ TCP. В первой версии проверки я определял усп�
 оказалось ошибкой: при timeout `dig` тоже печатает туда диагностический
 текст, поэтому запрещённый запрос ошибочно отображался как `ALLOW`. После
 исправления проверка принимала за успех только строку с IP-адресом из
-DNS-ответа. Получился ожидаемый результат:
-
-```text
-=== api ===
-UDP      ALLOW  10.51.137.78
-TCP      ALLOW  10.51.137.78
-
-=== worker ===
-UDP      ALLOW  10.51.137.78
-TCP      ALLOW  10.51.137.78
-
-=== postgres ===
-UDP      DENY
-TCP      DENY
-
-=== load-client ===
-UDP      ALLOW  10.51.137.78
-TCP      ALLOW  10.51.137.78
-
-=== outsider ===
-UDP      DENY
-TCP      DENY
-```
-
-Таким образом, DNS разрешён не всему namespace, а только API, worker и
-нагрузочному клиенту. PostgreSQL и посторонний Pod выбраны общим
-`default-deny`, но не подходят под selector разрешающей DNS-политики, поэтому
-оба протокола у них блокируются.
+DNS-ответа. Получился ожидаемый результат.
 
 
 ## Часть 6 — диагностика скрытой поломки
@@ -917,12 +890,10 @@ PASS: outsider cannot reach PostgreSQL
 
 ## Часть 7 — мониторинг
 
-Новый Prometheus поднимать не стал: переиспользовал
-`kube-prometheus-stack` из Лабы 2. Его selectors уже разрешают находить
-`ServiceMonitor` и `PrometheusRule` во всех namespace. При этом Hubble и
-Cilium экспортировали метрики, но Prometheus ещё не знал, откуда их
-забирать. Поэтому в `cilium-values.yaml` включил штатные ServiceMonitor
-Cilium chart:
+Cilium и Hubble среди targets нет, exporters метрики отдавали,
+но Prometheus про их endpoints ничего не знает.
+
+Поэтому включил штатные `ServiceMonitor` в values самого Cilium:
 
 ```yaml
 hubble:
@@ -936,8 +907,20 @@ prometheus:
     enabled: true
 ```
 
-После обновления Cilium проверил не только наличие CR, но и реальные scrape
-targets в Prometheus:
+Обновил существующий release:
+
+```bash
+helm upgrade cilium cilium/cilium \
+  --namespace kube-system \
+  --reuse-values \
+  -f lab5/cilium-values.yaml
+
+kubectl -n kube-system get servicemonitor
+```
+
+Одного созданного `ServiceMonitor` мало, поэтому дальше проверил фактический
+`up` в Prometheus. Все три Cilium agent, все три Hubble metrics endpoint и
+оба CoreDNS target начали отдаваться со значением `1`:
 
 ```text
 up  cilium-agent    http://172.18.0.5:9962/metrics
@@ -950,8 +933,9 @@ up  coredns         http://10.50.1.125:9153/metrics
 up  coredns         http://10.50.1.175:9153/metrics
 ```
 
-Для dashboard использовал фактически найденные series, а не предполагаемые
-названия из документации:
+В Prometheus проверил, что меняются
+`hubble_tcp_flags_total`, `hubble_flows_processed_total`,
+`hubble_drop_total` и метрики CoreDNS. Из них собрал сетевую часть dashboard:
 
 | Что наблюдаю | Метрика | Что показываю |
 |---|---|---|
@@ -962,23 +946,27 @@ up  coredns         http://10.50.1.175:9153/metrics
 | Ответы DNS | `coredns_dns_responses_total` | скорость по response code |
 | Задержка DNS | `coredns_dns_request_duration_seconds_bucket` | p95 обработки запроса |
 
-В Hubble metrics сейчас нет source/destination workload labels: series
-агрегированы на уровне Cilium agent. Это удерживает cardinality, а конкретные
-Pod и порт при расследовании по-прежнему смотрю в Hubble UI, как в Части 6.
+Тут обнаружилось ограничение: в наших series `hubble_drop_total` нет labels
+конкретного source/destination Pod, IP и порта. Метрика отвечает на вопрос
+«начались ли policy drops и по какой причине», но не показывает точную пару
+участников. Поэтому Prometheus использую для обнаружения проблемы, а
+конкретный поток потом ищу в Hubble UI, как делал в шестой части.
 
-В существующий dashboard добавил шесть сетевых панелей. На тестовой нагрузке
-видны рост SYN, `POLICY_DENIED`, DNS-запросы и ответы, latency CoreDNS и
-соотношение forwarded/dropped flows:
+Шесть панелей добавил в уже существующий dashboard `shop`, чтобы рядом были
+видны и сеть, и состояние приложения. После обновления чарта запустил
+разрешённую нагрузку. На сетевых графиках появились SYN, DNS-запросы,
+`POLICY_DENIED` и соотношение forwarded/dropped flows:
 
 ![Сетевые метрики Cilium, Hubble и CoreDNS](pics/grafana-network-dashboard.png)
 
-При этом прикладные панели подтверждают, что разрешённая нагрузка продолжала
-создавать и обрабатывать заказы без ошибок:
+На прикладных панелях в тот же интервал заказы продолжали создаваться и
+обрабатываться без ошибок. 
 
 ![Метрики API и worker во время сетевого теста](pics/grafana-application-dashboard.png)
 
-В `PrometheusRule` добавил три сетевых алерта, а окна, выдержки и пороги
-вынес в `values.yaml`:
+После графиков добавил в Helm-чарт `PrometheusRule` с тремя сетевыми
+алертами. Окна, пороги и `for` вынес в `values.yaml`, чтобы их можно было
+настроить без правки шаблона:
 
 | Алерт | Условие | Зачем нужен |
 |---|---|---|
@@ -986,23 +974,23 @@ Pod и порт при расследовании по-прежнему смот
 | `ShopTcpResetBurst` | больше 1 RST/с в течение минуты | ловит ситуацию, когда маршрут доступен, но соединения массово сбрасываются endpoint'ами |
 | `ShopDnsFailures` | больше 5 `SERVFAIL`/`REFUSED` за 2 минуты либо CoreDNS target недоступен | DNS является общей зависимостью всех обращений к Service по имени |
 
-Для проверки создал два временных Pod. `dashboard-load` имел labels
-разрешённого `load-client`, постоянно резолвил `shop-api` и создавал заказы.
-`dashboard-outsider` без разрешающих labels пытался подключиться напрямую к
-PostgreSQL и генерировал контролируемые policy drops. После выдержки
-Prometheus перевёл алерт в `firing`.
+Создал два временных Pod:
 
-На том же интервале появился реальный поток ответов CoreDNS с `SERVFAIL`,
-поэтому сработал и DNS-алерт. Значение `1` на stat-панели означает активную
-alert series, а не один отброшенный пакет:
+- `dashboard-load` получил labels разрешённого `load-client`, резолвил
+  `shop-api` и создавал заказы;
+- `dashboard-outsider` остался без разрешающих labels и постоянно пытался
+  подключиться напрямую к PostgreSQL.
+
+Второй Pod создал контролируемые `POLICY_DENIED`. После заданного окна и
+выдержки `ShopNetworkPolicyDrops` перешёл в `firing`. На том же интервале
+CoreDNS вернул несколько реальных `SERVFAIL`, поэтому одновременно сработал
+и `ShopDnsFailures`:
 
 ![Сработавшие сетевые алерты в Grafana](pics/grafana-firing-alerts.png)
 
-После снимка временные Pod удалил. Таким образом, проверена вся цепочка:
-exporter Cilium/CoreDNS → ServiceMonitor → Prometheus → PrometheusRule и
-Grafana. Алерты не просто существуют в Kubernetes API — два из трёх правил
-дошли до состояния `firing` на реальных метриках.
-
+В итоге руками прошёл всю цепочку:
+Cilium/CoreDNS отдают метрики, `ServiceMonitor` приводит за ними Prometheus,
+`PrometheusRule` вычисляет условие, а Grafana показывает результат. 
 <p align="center">
   <img src="../pics/skeleton.jpeg" alt="Я после пяти закрытых лаб" width="500">
 </p>
