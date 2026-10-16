@@ -50,6 +50,8 @@ worker:
 postgres:
   instances: 1
   storageSize: 1Gi
+  port: 5432
+  instanceManagerPort: 8000
 
   resources:
     requests:
@@ -61,3 +63,58 @@ postgres:
 
 monitoring:
   interval: 15s
+
+  alerts:
+    policyDrops:
+      window: 2m
+      for: 30s
+      threshold: 5
+
+    tcpResets:
+      window: 2m
+      for: 1m
+      rateThreshold: 1
+
+    dnsFailures:
+      window: 2m
+      for: 30s
+      threshold: 5
+
+networkPolicy:
+  enabled: true
+
+  workloads:
+    partOfLabel: shop
+    apiLabel: api
+    workerLabel: worker
+    loadClientLabel: load-client
+    postgresLabels:
+      app.kubernetes.io/name: postgres
+      app.kubernetes.io/part-of: shop
+
+  dns:
+    namespaceLabels:
+      kubernetes.io/metadata.name: kube-system
+    podLabels:
+      k8s-app: kube-dns
+    port: 53
+
+  prometheus:
+    namespaceLabels:
+      kubernetes.io/metadata.name: monitoring
+    podLabels:
+      app.kubernetes.io/name: prometheus
+
+  cnpgOperator:
+    namespaceLabels:
+      kubernetes.io/metadata.name: cnpg-system
+    podLabels:
+      app.kubernetes.io/name: cloudnative-pg
+      app.kubernetes.io/instance: cnpg
+
+  externalClient:
+    entity: world
+
+  kubernetesApi:
+    entity: kube-apiserver
+    port: 6443

@@ -10,7 +10,7 @@
 | 02 | **Наблюдаемость и мониторинг** | [Задание](./lab2/lab.md) · [Отчёт](./lab2/README.md) · [Файлы](./lab2/) | ✅ |
 | 03 | **Control plane Kubernetes** | [Задание](./lab3/lab.md) · [Отчёт](./lab3/README.md) · [Файлы](./lab3/) | ✅ |
 | 04 | **Ресурсы и планирование** | [Задание](./lab4/lab.md) · [Отчёт](./lab4/README.md) · [Файлы](./lab4/) | ✅ |
-| 05 | **Сеть Kubernetes** | [Задание](./lab5/lab.md) · [Стартовый набор](./lab5/README.md) · [Файлы](./lab5/) | 🚧 |
+| 05 | **Сеть Kubernetes** | [Задание](./lab5/lab.md) · [Отчёт](./lab5/README.md) · [Файлы](./lab5/) | ✅ |
 | 06 | **Service mesh и трафик** | — | 🔒 |
 
 ## Я после первой закрытой лабы
@@ -37,3 +37,8 @@
   <img src="./pics/unhealthy.jpeg" alt="Я после четырёх закрытых лаб" width="500">
 </p>
 
+## Я после пяти закрытых лаб
+
+<p align="center">
+  <img src="./pics/skeleton.jpeg" alt="Я после пяти закрытых лаб" width="500">
+</p>

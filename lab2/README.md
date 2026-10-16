@@ -665,3 +665,7 @@ target, а Alertmanager и Karma показали отдельный крити�
 ![ApiDown в Alertmanager](pics/alertmanager-api-down.png)
 
 ![ApiDown в Karma](pics/karma-api-down.png)
+
+<p align="center">
+  <img src="../pics/Buhh.jpeg" alt="Я после двух закрытых лаб" width="500">
+</p>

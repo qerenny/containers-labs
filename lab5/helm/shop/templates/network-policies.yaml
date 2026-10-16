@@ -1,0 +1,239 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-default-deny
+
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-dns-egress
+
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - {{ .Values.networkPolicy.workloads.apiLabel }}
+          - {{ .Values.networkPolicy.workloads.workerLabel }}
+          - {{ .Values.networkPolicy.workloads.loadClientLabel }}
+
+  policyTypes:
+    - Egress
+
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dns.namespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.dns.podLabels | nindent 14 }}
+      ports:
+        - protocol: UDP
+          port: {{ .Values.networkPolicy.dns.port }}
+        - protocol: TCP
+          port: {{ .Values.networkPolicy.dns.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-api-ingress
+
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.networkPolicy.workloads.apiLabel }}
+      app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .Values.networkPolicy.workloads.loadClientLabel }}
+              app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.prometheus.namespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.prometheus.podLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.service.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-worker-monitoring
+
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.networkPolicy.workloads.workerLabel }}
+      app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.prometheus.namespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.prometheus.podLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.worker.service.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-app-egress
+
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - {{ .Values.networkPolicy.workloads.apiLabel }}
+          - {{ .Values.networkPolicy.workloads.workerLabel }}
+
+  policyTypes:
+    - Egress
+
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.workloads.postgresLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-load-client-egress
+
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.networkPolicy.workloads.loadClientLabel }}
+      app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+
+  policyTypes:
+    - Egress
+
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ .Values.networkPolicy.workloads.apiLabel }}
+              app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.service.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-postgres
+
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml .Values.networkPolicy.workloads.postgresLabels | nindent 6 }}
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - {{ .Values.networkPolicy.workloads.apiLabel }}
+                  - {{ .Values.networkPolicy.workloads.workerLabel }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.port }}
+
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.cnpgOperator.namespaceLabels | nindent 14 }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.cnpgOperator.podLabels | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.instanceManagerPort }}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-external-api
+
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.networkPolicy.workloads.apiLabel }}
+      app.kubernetes.io/part-of: {{ .Values.networkPolicy.workloads.partOfLabel }}
+
+  ingress:
+    - fromEntities:
+        - {{ .Values.networkPolicy.externalClient.entity }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.api.service.port | quote }}
+              protocol: TCP
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+
+metadata:
+  name: {{ .Release.Name }}-allow-postgres-kube-api
+
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- toYaml .Values.networkPolicy.workloads.postgresLabels | nindent 6 }}
+
+  egress:
+    - toEntities:
+        - {{ .Values.networkPolicy.kubernetesApi.entity }}
+      toPorts:
+        - ports:
+            - port: {{ .Values.networkPolicy.kubernetesApi.port | quote }}
+              protocol: TCP
+{{- end }}

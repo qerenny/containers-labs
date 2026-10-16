@@ -72,15 +72,145 @@ data:
           ],
           "title": "Worker failure rate",
           "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "cps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "id": 5,
+          "targets": [
+            {
+              "expr": "sum(rate(hubble_tcp_flags_total{job=\"hubble-metrics\", flag=\"SYN\"}[2m]))",
+              "legendFormat": "SYN",
+              "refId": "A"
+            },
+            {
+              "expr": "sum(rate(hubble_tcp_flags_total{job=\"hubble-metrics\", flag=\"RST\"}[2m]))",
+              "legendFormat": "RST",
+              "refId": "B"
+            }
+          ],
+          "title": "TCP connection events",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "pps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "id": 6,
+          "targets": [
+            {
+              "expr": "sum by (reason, protocol) (rate(hubble_drop_total{job=\"hubble-metrics\"}[2m]))",
+              "legendFormat": "{{`{{reason}}`}} / {{`{{protocol}}`}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Dropped traffic",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+          "id": 7,
+          "targets": [
+            {
+              "expr": "sum by (proto, type) (rate(coredns_dns_requests_total{job=\"coredns\"}[2m]))",
+              "legendFormat": "{{`{{proto}}`}} / {{`{{type}}`}}",
+              "refId": "A"
+            }
+          ],
+          "title": "CoreDNS request rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+          "id": 8,
+          "targets": [
+            {
+              "expr": "sum by (rcode) (rate(coredns_dns_responses_total{job=\"coredns\"}[2m]))",
+              "legendFormat": "{{`{{rcode}}`}}",
+              "refId": "A"
+            }
+          ],
+          "title": "CoreDNS responses",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+          "id": 9,
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(coredns_dns_request_duration_seconds_bucket{job=\"coredns\"}[5m])))",
+              "legendFormat": "p95",
+              "refId": "A"
+            }
+          ],
+          "title": "CoreDNS request duration p95",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {"defaults": {"unit": "pps"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+          "id": 10,
+          "targets": [
+            {
+              "expr": "sum by (verdict, protocol) (rate(hubble_flows_processed_total{job=\"hubble-metrics\"}[2m]))",
+              "legendFormat": "{{`{{verdict}}`}} / {{`{{protocol}}`}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Hubble flow verdicts",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "red", "value": 1}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 6, "w": 24, "x": 0, "y": 40},
+          "id": 11,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+            "textMode": "value_and_name"
+          },
+          "targets": [
+            {
+              "expr": "max by (alertname, severity) (ALERTS{alertname=~\"Shop(NetworkPolicyDrops|TcpResetBurst|DnsFailures)\", alertstate=\"firing\"})",
+              "legendFormat": "{{`{{alertname}}`}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Firing network alerts",
+          "type": "stat"
         }
       ],
       "refresh": "5s",
       "schemaVersion": 41,
-      "tags": ["lab5", "shop", "starter"],
+      "tags": ["lab5", "shop", "network", "cilium"],
       "templating": {"list": []},
       "time": {"from": "now-15m", "to": "now"},
       "timezone": "browser",
-      "title": "Shop — Lab 5 starter",
+      "title": "Shop — Lab 5 network",
       "uid": "lab5-shop-starter",
-      "version": 1
+      "version": 2
     }

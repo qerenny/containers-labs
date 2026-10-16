@@ -649,3 +649,7 @@ DESCRIPTION: Upgrade complete
 заданное окно `ShopApiErrorBurst` появился в Karma в состоянии firing:
 
 ![ShopApiErrorBurst в Karma](pics/karma-shop-api-error-burst.png)
+
+<p align="center">
+  <img src="../pics/stupidity.jpeg" alt="Я после трёх закрытых лаб" width="500">
+</p>

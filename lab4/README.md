@@ -701,4 +701,8 @@ done
 
 ![ShopApiErrorBurst в Karma](pics/karma-api-error-alert.png)
 
+<p align="center">
+  <img src="../pics/unhealthy.jpeg" alt="Я после четырёх закрытых лаб" width="500">
+</p>
+
 

@@ -55,3 +55,57 @@ spec:
             summary: Worker is failing
             description: The Worker has reported one or more failures in the last 5 minutes.
             action: Check the Worker logs, its database connection and pending orders.
+
+    - name: shop-network
+      rules:
+        - alert: ShopNetworkPolicyDrops
+          expr: |
+            sum(
+              increase(hubble_drop_total{
+                job="hubble-metrics",
+                reason="POLICY_DENIED"
+              }[{{ .Values.monitoring.alerts.policyDrops.window }}])
+            ) > {{ .Values.monitoring.alerts.policyDrops.threshold }}
+          for: {{ .Values.monitoring.alerts.policyDrops.for }}
+          labels:
+            severity: warning
+          annotations:
+            summary: Cilium is dropping traffic by policy
+            description: Hubble observed one or more POLICY_DENIED drops in the configured window.
+            action: Open Hubble, filter verdict=dropped and inspect the source, destination, port and matching policy.
+
+        - alert: ShopTcpResetBurst
+          expr: |
+            sum(
+              rate(hubble_tcp_flags_total{
+                job="hubble-metrics",
+                flag="RST"
+              }[{{ .Values.monitoring.alerts.tcpResets.window }}])
+            ) > {{ .Values.monitoring.alerts.tcpResets.rateThreshold }}
+          for: {{ .Values.monitoring.alerts.tcpResets.for }}
+          labels:
+            severity: warning
+          annotations:
+            summary: TCP reset rate is elevated
+            description: Hubble sees more TCP resets than the configured baseline.
+            action: Compare SYN and RST rates, then inspect Hubble flows for the affected endpoints.
+
+        - alert: ShopDnsFailures
+          expr: |
+            sum(
+              increase(coredns_dns_responses_total{
+                job="coredns",
+                rcode=~"SERVFAIL|REFUSED"
+              }[{{ .Values.monitoring.alerts.dnsFailures.window }}])
+            ) > {{ .Values.monitoring.alerts.dnsFailures.threshold }}
+            or
+            min(up{job="coredns"}) < 1
+            or
+            absent(up{job="coredns"})
+          for: {{ .Values.monitoring.alerts.dnsFailures.for }}
+          labels:
+            severity: critical
+          annotations:
+            summary: Cluster DNS is failing
+            description: CoreDNS returns SERVFAIL/REFUSED responses or at least one metrics target is unavailable.
+            action: Check CoreDNS Pods, Service endpoints, upstream connectivity and recent response codes.
